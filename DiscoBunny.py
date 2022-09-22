@@ -1,9 +1,7 @@
 import discord
-import checks
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
-import asyncio
 import aiosqlite
 import sqlite3
 from settings import Settings
