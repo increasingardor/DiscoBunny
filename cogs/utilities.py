@@ -15,7 +15,7 @@ class Utilities(commands.Cog):
         if module_lower in disco:
             cmd = "discobunny"
         elif module_lower in bunnit:
-            cmd = bunnitbot
+            cmd = "bunnitbot"
         else:
             return await ctx.send("That is not a valid module name.")
         jsk_sh = self.bot.get_command("jishaku sh")

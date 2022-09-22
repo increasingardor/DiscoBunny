@@ -37,8 +37,8 @@ class Bunny(commands.Cog):
         """
         if ctx.invoked_subcommand is None:
             reddit = asyncpraw.Reddit(
-                client_id=await self.bot.settings.get("client_id"),#self.CLIENT_ID,
-                client_secret=await self.bot.settings.get("client_secret"),#,self.CLIENT_SECRET,
+                client_id=await self.bot.settings.get("client_id"),
+                client_secret=await self.bot.settings.get("client_secret"),
                 user_agent="BunnitBot 1.1"
             )
 
@@ -58,9 +58,9 @@ class Bunny(commands.Cog):
                     await ctx.send(f"Tag `{tag}` does not exist, getting random post.")
                     result = await self.bot.db.execute("select reddit_id, post_id from posts")
                     posts = await result.fetchall()
-            post_list = [post for post in posts]#[post["reddit_id"] for post in posts]
+            post_list = [post for post in posts]
             random_post = random.choice(post_list)
-            selected_post = await reddit.submission(id=random_post["reddit_id"])#f"{random_post['reddit_id']}")
+            selected_post = await reddit.submission(id=random_post["reddit_id"])
             result = await self.bot.db.execute("select t.name from tags t inner join post_tags pt on t.tag_id = pt.tag_id where pt.post_id = ?", (random_post["post_id"],))
             post_tags = await result.fetchall()
             selected_post.tags = " ".join([f"`{post_tag['name']}`" for post_tag in post_tags])
@@ -69,20 +69,13 @@ class Bunny(commands.Cog):
             embed = self.embed_from_post(ctx, selected_post, image_url)
             if not ctx.channel.is_nsfw() or ctx.channel.id == 940258352775192639:
                 embed.set_image(url=None)
+                if embed.video:
+                    embed.video.url = None
                 await ctx.send(embed=embed)
                 await ctx.send(f"||{image_url} ||")
             else:
                 await ctx.send(embed=embed)
             await reddit.close()
-
-#    async def get_posts(self, tag=0):
-#        with self.bot.db:
-#            if tag > 0:
-#                posts = await self.bot.db.execute("select p.reddit_id from posts p inner join post_tags pt on p.post_id = pt.post_id inner join tags t on pt.tag_id = t.tag_id where t.tag_id = ?", (tag,)).fetchall()
-#                return [post[0] for post in posts]
-#            else:
-#                posts = await self.bot.db.execute("select reddit_id from posts").fetchall()
-#                return [post[0] for post in posts]
 
     def embed_from_post(self, ctx, selected_post, image_url):
         embed = discord.Embed(title=selected_post.title, url=f"http://old.reddit.com{selected_post.permalink}", color=2447966)
@@ -134,7 +127,6 @@ class Bunny(commands.Cog):
     async def get_untagged_posts(self):
         result = await self.bot.db.execute("select p.post_id, p.reddit_id from posts p left join post_tags pt on p.post_id = pt.post_id where pt.tag_id is null order by p.post_id")
         posts = await result.fetchall()
-#        await self.bot.db.commit()
         return posts
 
 
@@ -154,7 +146,6 @@ class Bunny(commands.Cog):
             client_secret=await self.bot.settings.get("client_secret"),#self.CLIENT_SECRET,
             user_agent="BunnitBot 1.1",
         )
-        print(post["reddit_id"])
         reddit_post = await reddit.submission(id=post["reddit_id"])
         await ctx.send(f"Please provide space separated tags for this post:\nhttp://old.reddit.com{reddit_post.permalink}") 
         reddit.close()
@@ -215,7 +206,6 @@ class Bunny(commands.Cog):
         def is_author(msg):
             return msg.author.id == ctx.author.id and msg.channel == ctx.channel
         
-#        with self.bot.db:
         row = await self.bot.db.execute("select tag_id from tags where name = ?", (tag,))
         result = await row.fetchone()
         if not result:
@@ -251,7 +241,7 @@ class Bunny(commands.Cog):
             row = await self.bot.db.execute("select post_id from posts where reddit_id = ?", (reddit_id,))
             post_db = await row.fetchone()
             if not post_db:
-                return await ctx.send(f"A post with the id {reddit_post} cannot be found.")
+                return await ctx.send(f"A post with the id {reddit_id} cannot be found.")
             else:
                 post_id = post_db["post_id"]
                 rows = await self.bot.db.execute("select t.name from tags t inner join post_tags pt on t.tag_id = pt.tag_id where pt.post_id = ?", (post_id,))
@@ -293,50 +283,10 @@ class Bunny(commands.Cog):
         else:
             return await ctx.send(f"Could not find post with id {reddit_id}.")
 
-    @commands.command()
-    async def suggest(self, ctx, url, *, comments=""):
-        """
-        Suggest a gift for Bunny
-
-        Suggest a gift for Bunny to add to her Throne wish list. If she adds your gift she can mention you in a message on the server. Please note that, for safety reasons, suggestions from Etsy are automatically rejected.
-        """
-
-        spreadsheet = await self.bot.settings.get("suggest_sheet")
-        sheetname = "Main List" if ctx.author.id != 991121986103279636 else "Dath"
-        tz = pytz.timezone('US/Central')
-
-        if not validators.url(url):
-            await ctx.send("Please provide a valid URL.")
-        else:
-            if re.search("etsy", url.lower()):
-                return await ctx.send("For safety reasons, Bunny cannot take suggestions from Etsy stores.")
-            values = [url, ctx.author.display_name, ctx.author.mention, datetime.datetime.now(tz).strftime("%m/%d/%Y %H:%M:%S"), comments]
-            await self.add_to_sheet(spreadsheet, sheetname, values)
-            await ctx.send("Suggestion made!")
-
-
-    @suggest.error
-    async def suggest_error(self, ctx, error):
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(f"You must supply a URL to suggest a gift. Try `!help suggest` for more information.")
-        else:
-            raise error
-
-    @commands.command(hidden=True)
-    async def prize(self, ctx, url):
-        channel = ctx.bot.get_channel(948272967178149948) 
-        if not validators.url(url):
-            await ctx.send("Please provide a valid URL.")
-        else:
-            await channel.send(url)
-            await ctx.send(f"Prize link posted in {channel.mention}!")
-
     @commands.group(invoke_without_command=True)
     @checks.is_mod()
     async def reddit(self, ctx):
         if ctx.invoked_subcommand is None:
-#            file_exists = os.path.isfile(os.getenv("REDDIT_OFF"))
-#            on_off = "off" if file_exists else "on"
             reddit_off = bool(int(await self.bot.settings.get("reddit_off")))
             on_off = "off" if reddit_off else "on"
             return await ctx.send(f"Reddit posts are currently {on_off}.")
@@ -344,25 +294,21 @@ class Bunny(commands.Cog):
     @reddit.command(name="off")
     @checks.is_mod()
     async def reddit_off(self, ctx):
-#        path = os.getenv("REDDIT_OFF")
         reddit_off = bool(int(self.bot.settings.get("reddit_off")))
         if reddit_off:
             return await ctx.send("Reddit posts are already off")
         else:
-#            open(path, "a").close()
-            self.bot.settings.set("reddit_off", 1)
+            await self.bot.settings.set("reddit_off", 1)
             return await ctx.send("Reddit posts turned off.")
 
     @reddit.command(name="on")
     @checks.is_mod()
     async def reddit_on(self, ctx):
-#        path = os.getenv("REDDIT_OFF")
         reddit_off = bool(int(self.bot.settings.get("reddit_off")))
         if not reddit_off:
             return await ctx.send("Reddit posts are already on.")
         else:
-#            os.remove(path)
-            self.bot.settings.set("reddit_off", 0)
+            await self.bot.settings.set("reddit_off", 0)
             return await ctx.send("Reddit posts turned on.")
 
     @commands.Cog.listener()
@@ -371,7 +317,6 @@ class Bunny(commands.Cog):
             return
         if message.channel.name == "are-you-pooping" and message.content.lower() != "yes":
             if message.author.top_role < discord.utils.get(message.guild.roles, name=await self.bot.settings.get("mod_role")):
-#            if not len([role for role in message.author.roles if role.name in os.environ["MOD_ROLES"].split(",")]): 
                 try: 
                     await asyncio.sleep(1)
                     msg = await message.channel.fetch_message(message.id)
@@ -381,7 +326,7 @@ class Bunny(commands.Cog):
                 except Exception as e:
                     error_msg = f"ERROR: {type(e).__name__}: {e}"
                     print(error_msg)
-                    owner = message.guild.get_member(self.bot.settings.get("owner_id"))
+                    owner = message.guild.get_member(await self.bot.settings.get("owner_id"))
                     await owner.send(error_msg)
 
     @commands.Cog.listener()
@@ -397,15 +342,8 @@ class Bunny(commands.Cog):
             except Exception as e:
                 error_msg = f"ERROR: {type(e).__name__}: {e}"
                 print(error_msg)
-                owner = message.guild.get_member(self.bot.settings.owner_id)
+                owner = before.guild.get_member(await self.bot.settings.get("owner_id"))
                 await owner.send(error_msg)
-
-    @commands.command(name="lock-emoji", hidden=True)
-    async def lock_emoji(self, ctx):
-        emoji = discord.utils.get(ctx.guild.emojis, name="shiny_black_hearts")
-        king = discord.utils.get(ctx.guild.roles, name="King")
-        await emoji.edit(name="shiny_black_hearts", roles=[king], reason="Lock to Bunny")
-        await ctx.send("Emoji locked.")
 
     @commands.command()
     @checks.is_mod()
@@ -426,7 +364,6 @@ class Bunny(commands.Cog):
 
     @commands.Cog.listener(name="on_message")
     async def number_listener(self, message):
-#940258352775192639
         if self.numberwang and message.channel.id == 940258352775192639 and message.author.top_role < discord.utils.get(message.guild.roles, name=await self.bot.settings.get("mod_role")):
             if not message.content.isdigit():
                 await message.delete()
