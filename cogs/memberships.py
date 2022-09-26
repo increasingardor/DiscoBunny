@@ -6,6 +6,10 @@ class Memberships(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    # Watches for removal of one of the membership roles and alerts in special channel 
+    # to let mods know membership has ended. Originally for MEE6 membership, 
+    # now watching for automatic removal by MEE6 at end of enrollment period and adding 
+    # role back for additional month.
     @commands.Cog.listener("on_member_update")
     async def leave_membership(self, before, after):
         flr = before.guild.get_role(1009880250823491625)
@@ -26,6 +30,7 @@ class Memberships(commands.Cog):
                     embed.description = f"Added role {was_member[0].name} back to member."
                 await channel.send(embed=embed)
 
+    # Turns the automatic add-back of roles on or off
     @commands.hybrid_group(name="manage-roles", invoke_without_command=True)
     @checks.is_mod()
     async def manage_roles(self, ctx):
@@ -44,6 +49,7 @@ class Memberships(commands.Cog):
         await self.bot.settings.set("manage_membership_roles", False)
         return await ctx.reply("Disco is no longer managing membership roles.")
 
+    # Add or remove FLR role
     @commands.hybrid_command()
     @checks.is_mod()
     async def flr(self, ctx, member: discord.Member):
@@ -51,6 +57,7 @@ class Memberships(commands.Cog):
         action = await self._manage_roles(flr, member)
         await ctx.reply(action)
 
+    # Add or remove CC role
     @commands.hybrid_command()
     @checks.is_mod()
     async def cc(self, ctx, member: discord.Member):
@@ -58,6 +65,8 @@ class Memberships(commands.Cog):
         action = await self._manage_roles(cc, member)
         await ctx.reply(action)
 
+
+    # Add or remove BH role
     @commands.hybrid_command()
     @checks.is_mod()
     async def bh(self, ctx, member: discord.Member):
@@ -96,6 +105,7 @@ class Memberships(commands.Cog):
             await ctx.reply(f"Unknown error encountered.")
             raise error
 
+    # Actual function that adds/removes roles, called by other commands
     async def _manage_roles(self, role, member):
         if role in member.roles:
             manage = int(await self.bot.settings.get("manage_membership_roles"))

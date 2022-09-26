@@ -7,7 +7,6 @@ import re
 import asyncio
 from datetime import datetime
 import pytz
-import os
 
 class CustomCommands(commands.Cog):
     """Commands to manage custom text commands."""
@@ -19,7 +18,7 @@ class CustomCommands(commands.Cog):
 
     @commands.group(name="custom", hidden=True)
     async def custom_command(self, ctx):
-        if ctx.invoked_subcommand is None and ctx.author.top_role > discord.utils.get(ctx.guild.roles, name=self.bot.settings.get("mod_role")):
+        if ctx.invoked_subcommand is None and ctx.author.top_role > discord.utils.get(ctx.guild.roles, name=await self.bot.settings.get("mod_role")):
             return await ctx.send("Please use a subcommand.")
 
     @custom_command.command(name="add")
@@ -37,7 +36,6 @@ class CustomCommands(commands.Cog):
         elif re.search(" +", command_name):
             msg = "Command names may not contain spaces."
         else:
-#            with self.bot.custom_commands:
             await self.bot.db.execute("insert into commands (name, text, created_by, created_date) values (?, ?, ?, ?)", (command_name, text, ctx.author.display_name, datetime.now(self.tz)))
             await self.bot.db.commit()
             msg = f"New custom text command added by {ctx.author.display_name}!\nCommand: !{command_name}\nText:\n```\n{text}\n```"
@@ -91,7 +89,6 @@ class CustomCommands(commands.Cog):
         row = await self.bot.db.execute("select name, text from commands where name = ?", (command_name,))
         result = await row.fetchone()
         if result:
-#            with self.bot.custom_commands:
             await self.bot.db.execute("update commands set text = ?, modified_by = ?, modified_date = ? where name = ?", (text, ctx.author.display_name, datetime.now(self.tz), command_name))
             await self.bot.db.commit()
             return await ctx.send(f"Custom text command updated by {ctx.author.display_name}!\nCommand: `!{command_name}`\n```\n{text}\n```")
@@ -124,7 +121,6 @@ class CustomCommands(commands.Cog):
         result = await self.bot.db.execute("select command_id from commands where name = ?", (old_command_name,))
         old_command = await result.fetchone()
         if old_command:
-#            with self.bot.custom_commands:
             await self.bot.db.execute("update commands set name = ? where command_id = ?", (new_command_name, old_command["command_id"]))
             await self.bot.db.commit()
             return await ctx.send(f"Command `{old_command_name}` renamed to `{new_command_name}`.")
@@ -174,7 +170,6 @@ class CustomCommands(commands.Cog):
                 await ctx.send("No valid response received. Command not deleted.")
             else:
                 if is_yes(msg.content):
-#                    with self.bot.custom_commands:
                     await self.bot.db.execute("delete from commands where command_id = ?", (result_id,))
                     await self.bot.db.commit()
                     return await ctx.send(f"Command `{command_name}` has been deleted.")

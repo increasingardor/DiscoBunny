@@ -15,7 +15,7 @@ class EmojiCog(commands.Cog):
             await ctx.send("Please use a subcommand")
 
     @emoji.command("add")
-    @checks.has_role_in_list(os.getenv("MOD_ROLES"))
+    @checks.is_mod()
     async def add(self, ctx, emoji_name, roles: commands.Greedy[discord.Role], *, reason=None):
         attachments = ctx.message.attachments
         error_msg = []
@@ -48,7 +48,7 @@ class EmojiCog(commands.Cog):
         await ctx.send(f"{type(error).__name__}: {error}")
 
     @emoji.command()
-    @checks.has_role_in_list(os.getenv("MOD_ROLES"))
+    @checks.is_mod()
     async def edit(self, ctx, emoji: discord.Emoji, roles: commands.Greedy[discord.Role], *, reason="No reason provided"):
         role_names = []
         if not roles:
@@ -66,7 +66,7 @@ class EmojiCog(commands.Cog):
             await ctx.send("An emoji by that name was not found on the server.")
 
     @emoji.command()
-    @checks.has_role_in_list(os.getenv("MOD_ROLES"))
+    @checks.is_mod()
     async def get(self, ctx, emoji: discord.Emoji):
         if not emoji.roles:
             role_list = ["Everyone"]

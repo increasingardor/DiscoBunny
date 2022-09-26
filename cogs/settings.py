@@ -6,6 +6,8 @@ import checks
 from datetime import datetime
 import pytz
 
+# Manage settings for bot
+
 class SettingsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -21,7 +23,7 @@ class SettingsCog(commands.Cog):
     async def add(self, ctx, key, *, value):
         key = key.lower()
         keys = await self.bot.settings.keys()
-        if key in keys:#os.environ:
+        if key in keys:
             await ctx.send(f"Setting {key.lower()} already exists. Please use `!settings update` to update a key.")
         else:
             await self.bot.settings.add(key, value, ctx.author.display_name, datetime.now(pytz.timezone("US/Central")))#self.set(key, value)
@@ -45,11 +47,6 @@ class SettingsCog(commands.Cog):
             await ctx.send(f"Setting `{key}` set to `{value}`.")
         else:
             await ctx.send(f"Setting `{key}` does not exist. Please use `!settings add` to add a key.")
-
-#    def set(self, key, value):
-#        os.environ[key] = value
-#        dotenv.set_key(self.env_file, key, os.environ[key])
-        
 
     @settings.command()
     @checks.is_mod()
