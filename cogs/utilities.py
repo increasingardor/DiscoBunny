@@ -2,10 +2,13 @@ import discord
 from discord.ext import commands
 import checks
 
+# Not currently working
+
 class Utilities(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    # Supposed to make accessing logs for bots easier, not currently working
     @commands.command()
     @checks.is_mod()
     async def log(self, ctx, module, time="today"):

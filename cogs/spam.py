@@ -6,14 +6,15 @@ import discord
 import pytz
 from discord.ext import commands
 
+# Rudimentary spam filter to delete spam links and invites
 
 class Spam(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-#        self.db = sqlite3.connect(self.bot.settings.posts.value)
 
     @commands.Cog.listener("on_message")
     async def domains(self, message):
+        # Compares message content against domains in the spam filter. Deletes if in the filter and alerts mods.
         if isinstance(message.channel, discord.TextChannel) and message.guild.id == 940258352775192636 and not message.author.bot and message.author.top_role < discord.utils.get(message.guild.roles, name=await self.bot.settings.get("mod_role")):
             result = await self.bot.db.execute("select domain from spam")
             rows = await result.fetchall()
@@ -29,6 +30,7 @@ class Spam(commands.Cog):
         if ctx.invoked_subcommand is None:
             pass
 
+    # Lists current spam domains
     @spam.command(name="list")
     @checks.is_mod()
     async def list_spam(self, ctx):
@@ -40,6 +42,7 @@ class Spam(commands.Cog):
         await ctx.send(f"Blacklisted Domains```{''.join(domains)}```")
 
 
+    # Add domain to spam list
     @spam.command(name="add")
     @checks.is_mod()
     async def add_spam(self, ctx, domain):
@@ -49,6 +52,7 @@ class Spam(commands.Cog):
         await self.bot.db.commit()
         await ctx.send(f"`{domain}` added to spam list.")
 
+    # Update a domain in spam list
     @spam.command(name="update")
     @checks.is_mod()
     async def update_spam(self, ctx, old_value, new_value):
@@ -56,6 +60,7 @@ class Spam(commands.Cog):
         await self.bot.db.commit()
         await ctx.send(f"`{old_value}` updated to `{new_value}`")
 
+    # Delete a domain from spam list
     @spam.command(name="delete")
     @checks.is_mod()
     async def delete_spam(self, ctx, domain):
@@ -71,8 +76,6 @@ class Spam(commands.Cog):
         row = await result.fetchone()
         if row:
             spam_id, name = row
-#            spam_id = row["spam_id"]
-#            name = row["domain"]
             await ctx.send(f"Delete `{name}` from spam filter? (y/n)")
             try:
                 msg = await self.bot.wait_for("message", check=is_author, timeout=15)

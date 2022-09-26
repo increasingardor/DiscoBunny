@@ -1,32 +1,32 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 import gspread
 import validators
 import pytz
 from dotenv import load_dotenv
-import os
 import asyncio
 import asyncpraw
 import random
 import datetime
-import time
 import re
 import checks
-import aiosqlite
 import typing
-import traceback
 import membership
 
 class Bunny(commands.Cog):
+    # Various commands related to Bunny
+    # `ctx` parameter in commands is Discord Context, includes info about the sender, the message, 
+    # the Discord server (called a guild), and methods to interact with them
+
     def __init__(self, bot):
+        # Set bot vars, load environment variables
         self.bot = bot
         load_dotenv()
+        # Response list for !bunny command
         self.responses = ["We're hunting wabbit...", "Trying to find Bunny...", "Searching for Bunny...", "Picking a random Bunny post..."]
         self.found = ["Found a wabbit, found a wabbit, found a WABBIT!", "Found Bunny!", "Bunny located.", "Here's your random Bunny..."]
+        # Bot var for !numberwang command, so only numbers can be used in general
         self.numberwang = False
-        self.gag = False
-        self.bot = bot
 
     @commands.group(invoke_without_command=True, aliases=["b"])
     @checks.is_level_5()
@@ -35,6 +35,7 @@ class Bunny(commands.Cog):
 
         Retrieves a random post from Bunny's Reddit profile. This could be a text post, a post from a NSFW subreddit, or a post from a SFW subreddit post. Sometimes this will include a preview image, and sometimes it will not, but will always include a link to the actual post. Optionally, a tag may be provided to narrow the results. Must be Level 5 or higher to use.
         """
+        # If no subcommand is used, connects to Reddit
         if ctx.invoked_subcommand is None:
             reddit = asyncpraw.Reddit(
                 client_id=await self.bot.settings.get("client_id"),
@@ -42,31 +43,44 @@ class Bunny(commands.Cog):
                 user_agent="BunnitBot 1.1"
             )
 
+            # Pulls random response
             rand_response = random.randint(0, len(self.responses) - 1)
             await ctx.send(self.responses[rand_response])
             post_list = []
+
+            # If no tag was provided, pulls list of all posts from database
             if tag is None:
                 result = await self.bot.db.execute("select reddit_id, post_id from posts")
                 posts = await result.fetchall()
             else:
+                # Checks to see if the provided tag exists; if it does, pulls posts with that tag
                 result = await self.bot.db.execute("select tag_id from tags where name = ?", (tag,))
                 tag_entry = await result.fetchone()
                 if tag_entry:
                     result = await self.bot.db.execute("select p.reddit_id, p.post_id from posts p inner join post_tags pt on p.post_id = pt.post_id inner join tags t on pt.tag_id = t.tag_id where t.tag_id = ?", (tag_entry["tag_id"],))
                     posts = await result.fetchall()
                 else:
+                    # Pulls all posts if the tag doesn't exist
                     await ctx.send(f"Tag `{tag}` does not exist, getting random post.")
                     result = await self.bot.db.execute("select reddit_id, post_id from posts")
                     posts = await result.fetchall()
+
+            # Pulls random post from list
             post_list = [post for post in posts]
             random_post = random.choice(post_list)
             selected_post = await reddit.submission(id=random_post["reddit_id"])
+
+            # Grabs all tags for the selected post to add to embed
             result = await self.bot.db.execute("select t.name from tags t inner join post_tags pt on t.tag_id = pt.tag_id where pt.post_id = ?", (random_post["post_id"],))
             post_tags = await result.fetchall()
             selected_post.tags = " ".join([f"`{post_tag['name']}`" for post_tag in post_tags])
             await ctx.send(self.found[rand_response])
+
+            # Parses image URL from Reddit data, creates embed
             image_url = self.get_image_url(selected_post)
             embed = self.embed_from_post(ctx, selected_post, image_url)
+
+            # Checks if channel is marked NSFW for image masking, sends embed, closes Reddit
             if not ctx.channel.is_nsfw() or ctx.channel.id == 940258352775192639:
                 embed.set_image(url=None)
                 if embed.video:
@@ -78,6 +92,7 @@ class Bunny(commands.Cog):
             await reddit.close()
 
     def embed_from_post(self, ctx, selected_post, image_url):
+        # Builds embed
         embed = discord.Embed(title=selected_post.title, url=f"http://old.reddit.com{selected_post.permalink}", color=2447966)
         embed.set_author(name="Bunny", url="http://reddit.com/u/heyitsjustbunny")
         if image_url != None:
@@ -87,27 +102,26 @@ class Bunny(commands.Cog):
         embed.description = f"Tags: {selected_post.tags}"
         return embed
 
-    async def add_to_sheet(self, spreadsheet_id, sheet_name, values):
-        gc = gspread.service_account(await self.bot.settings.get("service_account"))
-        spreadsheet = gc.open_by_key(spreadsheet_id)
-        sheet = spreadsheet.worksheet(sheet_name)
-        sheet.append_row(values)
-
     def get_image_url(self, post):
+        # Parses image URL
+        # Discord can't display Imgur's .gifv so we repalce with a jpg
         if post.url.find("imgur") > -1:
             return post.url.replace("gifv", "jpg")
+        # If post was removed by Reddit we return a placeholder image because the image is not available.
         elif post.title.find("Removed by Reddit") > -1:
             return "https://www.publicdomainpictures.net/pictures/280000/nahled/not-found-image-15383864787lu.jpg"
+        # For Reddit galleries we get the first preview image.
         elif post.url.find("gallery") > -1:
             for i in post.media_metadata.items():
                 return i[1]["p"][0]["u"]
-                break
+        # For individual Reddit images we just return the URL
         else:
             try:
                 return post.preview["images"][0]["source"]["url"]
             except:
                 return None    
 
+    # Error handler for below minimum level
     @bunny.error
     async def bunny_error(self, ctx, error):
         if isinstance(error, commands.CheckFailure):
@@ -118,6 +132,7 @@ class Bunny(commands.Cog):
     @bunny.command(name="untagged")
     @checks.is_mod()
     async def bunny_untagged(self, ctx):
+        # Gets untagged posts and presents them for tagging, one at a time.
         posts = await self.get_untagged_posts()
         if posts:
             return await self.get_tags(ctx, posts)
@@ -125,21 +140,27 @@ class Bunny(commands.Cog):
             return await ctx.send("No untagged posts!")
 
     async def get_untagged_posts(self):
+        # Gets list of untagged posts from database
         result = await self.bot.db.execute("select p.post_id, p.reddit_id from posts p left join post_tags pt on p.post_id = pt.post_id where pt.tag_id is null order by p.post_id")
         posts = await result.fetchall()
         return posts
 
 
     async def get_tags(self, ctx, posts):
+        # Gets input from user to tag posts
+        # Checks if input was from the original command author
         def is_author(msg):
             return msg.author.id == ctx.author.id and msg.channel == ctx.channel
         
+        # Checks if the response is yes
         def is_yes(msg):
             return msg.lower() == "y" or msg.lower() == "yes"
 
+        # Checks if repsonse is no
         def is_no(msg):
             return msg.lower() == "n" or msg.lower() == "no"
 
+        # Pulls post from end of list and gets the post from Reddit, sends message to Discord
         post = posts.pop()
         reddit = asyncpraw.Reddit(
             client_id=await self.bot.settings.get("client_id"),#self.CLIENT_ID,
@@ -150,26 +171,33 @@ class Bunny(commands.Cog):
         await ctx.send(f"Please provide space separated tags for this post:\nhttp://old.reddit.com{reddit_post.permalink}") 
         reddit.close()
         
+        # Waits for response from original author for five minutes.
         try:
             msg = await self.bot.wait_for("message", check=is_author, timeout=300)
         except asyncio.TimeoutError:
             return await ctx.send("Tagging ended due to no response.")
         else:
+            # If author responds "done" ends tagging
             if msg.content.lower().startswith("done"):
                 return await ctx.send(f"Ended tagging. Last post untagged. {len(posts)} posts still untagged.")
+            # If author responds "skip" moves to next untagged post
             elif msg.content.lower().startswith("skip"):
                 if posts:
                     await ctx.send("Post skipped!")
                     await self.get_tags(ctx, posts)
             else:
+                # Splits response into space separated words/tags
                 tags = []
                 for tag in msg.content.lower().split():
                     tag = tag
+
+                    # Checks if tag exists. See process_tag for more info
                     tag_id = await self.process_tag(ctx, tag)
                     if tag_id:
                         await self.tag_post(tag_id, post[0])
                         tags.append(tag)
                 await ctx.send(f"Post tagged with {' '.join(tags)}")
+                # Prompt if wants to continue tagging if the posts are still in the list
                 if posts:
                     await ctx.send("Tag another post (y/n)?")
                     try:
@@ -182,6 +210,7 @@ class Bunny(commands.Cog):
                         elif is_no(msg.content):
                             return await ctx.send(f"Tagging ended. {len(posts)} still untagged.")
                 else:
+                    # If posts list was empty, checks if there are still untagged posts in the database.
                     posts_db = await self.get_untagged_posts()
                     if posts_db:
                         await ctx.send(f"No posts remain to tag, but there are {len(posts_db)} still untagged in the database, possibly skipped in this session. Review these posts for tagging (y/n)")
@@ -197,6 +226,7 @@ class Bunny(commands.Cog):
                     
 
     async def process_tag(self, ctx, tag):
+        # Processes actual tags to database
         def is_yes(msg_content):
             return msg_content.lower() == "y" or msg_content.lower() == "yes"
 
@@ -206,6 +236,7 @@ class Bunny(commands.Cog):
         def is_author(msg):
             return msg.author.id == ctx.author.id and msg.channel == ctx.channel
         
+        # Gets tag by name from database
         row = await self.bot.db.execute("select tag_id from tags where name = ?", (tag,))
         result = await row.fetchone()
         if not result:
@@ -226,17 +257,20 @@ class Bunny(commands.Cog):
         return result["tag_id"]
 
     async def add_tag(self, ctx, tag):
+        # Adds new tag to database
         await self.bot.db.execute("insert into tags (name) values (?)", (tag,))
         await self.bot.db.commit()
         await ctx.send(f"Tag {tag} inserted.")
 
     async def tag_post(self, tag_id, post_id):
+        # Tags a post in the database
         await self.bot.db.execute("insert into post_tags (post_id, tag_id) values (?,?)", (post_id, tag_id))
         await self.bot.db.commit()
 
     @bunny.command(name="tag")
     @checks.is_mod()
     async def bunny_tag(self, ctx, reddit_id, *tags):
+        # Manually tag a post by Reddit ID
         if tags:
             row = await self.bot.db.execute("select post_id from posts where reddit_id = ?", (reddit_id,))
             post_db = await row.fetchone()
@@ -264,6 +298,7 @@ class Bunny(commands.Cog):
 
     @bunny.command(name="tags")
     async def bunny_tags(self, ctx):
+        # Get list of all tags (more than five posts) and count
         rows = await self.bot.db.execute("select t.name, count(pt.tag_id) as count from tags t inner join post_tags pt on t.tag_id = pt.tag_id group by t.name order by count(pt.tag_id) desc")
         tags = await rows.fetchall()
         tags_list = [f"{tag['name']}\t{tag['count']}" for tag in tags if tag[1] > 4]
@@ -273,6 +308,7 @@ class Bunny(commands.Cog):
     @bunny.command(name="del-post")
     @checks.is_mod()
     async def del_post(self, ctx, reddit_id):
+        # Delete a post from the database
         rows = await self.bot.db.execute("select post_id from posts where reddit_id = ?", (reddit_id,))
         post = await rows.fetchone()
         if post is not None:
@@ -286,6 +322,8 @@ class Bunny(commands.Cog):
     @commands.group(invoke_without_command=True)
     @checks.is_mod()
     async def reddit(self, ctx):
+        # Group of commands that controls Reddit posts being posted to Discord
+        # This command by itself without a subcommand returns the current setting
         if ctx.invoked_subcommand is None:
             reddit_off = bool(int(await self.bot.settings.get("reddit_off")))
             on_off = "off" if reddit_off else "on"
@@ -294,6 +332,7 @@ class Bunny(commands.Cog):
     @reddit.command(name="off")
     @checks.is_mod()
     async def reddit_off(self, ctx):
+        # Turns Reddit posting to off
         reddit_off = bool(int(self.bot.settings.get("reddit_off")))
         if reddit_off:
             return await ctx.send("Reddit posts are already off")
@@ -304,6 +343,7 @@ class Bunny(commands.Cog):
     @reddit.command(name="on")
     @checks.is_mod()
     async def reddit_on(self, ctx):
+        # Turns Reddit posting to on
         reddit_off = bool(int(self.bot.settings.get("reddit_off")))
         if not reddit_off:
             return await ctx.send("Reddit posts are already on.")
@@ -313,15 +353,23 @@ class Bunny(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
+        # Adds listener for all messages, but is watching specifically for #are-you-pooping posts
+
+        # Skips if is a DM
         if isinstance(message.channel, discord.DMChannel):
             return
+
+        # If we're in the right channel and the message is not exactly equal to yes/YES/YeS etc.
         if message.channel.name == "are-you-pooping" and message.content.lower() != "yes":
+            # Excludes mods from being deleted.
             if message.author.top_role < discord.utils.get(message.guild.roles, name=await self.bot.settings.get("mod_role")):
                 try: 
+                    # Deletes message after 1s delay
                     await asyncio.sleep(1)
                     msg = await message.channel.fetch_message(message.id)
                     await message.delete()
                 except discord.NotFound:
+                    # If we can't find the message, it was deleted, so we return
                     return
                 except Exception as e:
                     error_msg = f"ERROR: {type(e).__name__}: {e}"
@@ -331,6 +379,7 @@ class Bunny(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
+        # Same as above, but for message edits, which the original bot does not cover
         if isinstance(after.channel, discord.DMChannel):
             return
         if after.channel.name == "are-you-pooping" and after.content.lower() != "yes":
@@ -347,14 +396,8 @@ class Bunny(commands.Cog):
 
     @commands.command()
     @checks.is_mod()
-    async def quote(self, ctx, author: discord.Member, *, quote):
-        embed = discord.Embed(title="Quote", description=f'"{quote}"')
-        embed.set_author(name=author.nick, icon_url=author.avatar_url).set_footer(text=ctx.author.nick, icon_url=ctx.author.avatar_url)
-        await ctx.send(embed=embed)
-
-    @commands.command()
-    @checks.is_mod()
     async def numberwang(self, ctx):
+        # Turns numberwang on or off
         if not self.numberwang:
             await ctx.send(f"It's Numberwang! Numberwang is now turned on.")
             self.numberwang = not self.numberwang
@@ -364,27 +407,15 @@ class Bunny(commands.Cog):
 
     @commands.Cog.listener(name="on_message")
     async def number_listener(self, message):
+        # If numberwang is on, checks channel of message, whether user is a mod, and if the message is a digit.
+        # Deletes if is in general, not a mod, and number is not a digit.
         if self.numberwang and message.channel.id == 940258352775192639 and message.author.top_role < discord.utils.get(message.guild.roles, name=await self.bot.settings.get("mod_role")):
             if not message.content.isdigit():
                 await message.delete()
 
-    @commands.command(hidden=True)
-    @checks.is_mod()
-    async def gag(self, ctx):
-        if self.gag == True:
-            new_state = "ungagged"
-        else:
-            new_state = "gagged"
-        self.gag = not self.gag
-        await ctx.send(f"Bunny is now {new_state}.")
-
-    @commands.Cog.listener("on_message")
-    async def bunny_gag(self, message):
-        if message.author.id == 940257449502466138 and self.gag:
-            await message.delete()
-
     @commands.command(name="get-posts", hidden=True)
     async def get_posts(self, ctx):
+        # Retrieves list of all Bunny's posts from Reddit. Used if needed to rebuild the post list.
         reddit = asyncpraw.Reddit(
             client_id=self.CLIENT_ID,
             client_secret=self.CLIENT_SECRET,
@@ -414,70 +445,15 @@ class Bunny(commands.Cog):
 #        now = datetime.datetime.utcnow()
 #        await ctx.send(f"Bunny is a streamer! Catch her on Tuesdays and Thursdays (Wednesdays and Fridays for our European friends) on Twitch!\nThe next stream is on <t:{int(utc_next.timestamp())}> at https://twitch.tv/heyitsjustbunny")
 
-
-#    @commands.command()
-#    async def prune(self, ctx):
-#        role = ctx.guild.get_role(945922913423482891)
-#        seven_days = discord.utils.utcnow() - datetime.timedelta(days=7)
-#        members = [member for member in ctx.guild.members if role not in member.roles and not member.bot and member.joined_at < seven_days]
-#        await ctx.send(f"Beginning prune. {len(members)} have joined the server more than seven days ago but have not accepted the rules. Beginning kicks...")
-#        for member in members:
-#            print(member.name)
-#            await member.kick(reason="The Great Purging: has not accepted the rules within seven days of joining the server.")
-#        await ctx.send("Purge complete. Deadweight removed. The Community is Pure once again.")
-#        count = await ctx.guild.estimate_pruned_members(days=1)
-#        await ctx.send(f"Pruning {count} members who haven't accepted the rules.")
-#        pruned = await ctx.guild.prune_members(days=1)
-#        await ctx.send(f"Prune completed, {pruned} members kicked.")
-       
-
-    @commands.command(name="prune-count")
-    @checks.is_mod()
-    async def prune_count(self, ctx):
-#        role = ctx.guild.get_role(945922913423482891)
-#        seven_days = discord.utils.utcnow() - datetime.timedelta(days=7)
-#        members = [member for member in ctx.guild.members if role not in member.roles and not member.bot and member.joined_at < seven_days]
-#        await ctx.send(f"{len(members)} members to be pruned.")
-        count = await ctx.guild.estimate_pruned_members(days=1)
-        await ctx.send(f"{count} to be pruned")
-
-
-
     @commands.command(name="create-view")
     @checks.is_mod()
     async def create_view(self, ctx):
+        # Used to create the buttons to get the additional user info needed for matching to Fansly.
         channel = ctx.guild.get_channel(1012168519019921489)
         embed = discord.Embed(title="Email Needed!", color=discord.Color.brand_green(), description="As Bunny transitions to Fansly, we need some information to match you up between Discord and the Stripe payment info to figure out how long you subscribed for. Just click the button below and enter the email address you used when signing up for the membership, and we'll get you a link to Fansly for your membership!")
         msg = await channel.send(embed=embed, view=membership.GetMemberInfo())
         print(msg.id)
         await self.bot.settings.set("member_view", msg.id)
-
-class Suggestion(discord.ui.Modal, title="Wishlist Suggestion!"):
-    url = discord.ui.TextInput(label="URL")
-    comments = discord.ui.TextInput(label="Comment", placeholder="Comment for Bunny", style=discord.TextStyle.long)
-    
-
-    async def add_to_sheet(self, spreadsheet_id, sheet_name, values):
-        gc = gspread.service_account(await self.client.settings.get("service_account"))
-        spreadsheet = gc.open_by_key(spreadsheet_id)
-        sheet = spreadsheet.worksheet(sheet_name)
-        sheet.append_row(values)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        self.client = interaction.client
-        spreadsheet = await interaction.client.settings.get("suggest_sheet")
-        sheetname = "Main List" if interaction.id != 991121986103279636 else "Dath"
-        tz = pytz.timezone('US/Central')
-
-        if not validators.url(self.url.value):
-            return await interaction.response.send_message("Please provide a valid URL.")
-        else:
-            if re.search("etsy", self.url.value.lower()):
-                return await interaction.response.send("For safety reasons, Bunny cannot take suggestions from Etsy stores.")
-            values = [self.url.value, interaction.user.display_name, interaction.user.mention, datetime.datetime.now(tz).strftime("%m/%d/%Y %H:%M:%S"), self.comments.value]
-            await self.add_to_sheet(spreadsheet, sheetname, values)
-#            await ctx.send("Suggestion made!")
-        await interaction.response.send_message(f"Thanks for suggesting {self.url.value}!", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Bunny(bot))

@@ -1,13 +1,15 @@
 from discord.ext import commands
 import checks
 
+# Commands to load and unload other cogs/extensions
+# This way we can work on just a single module and then reload it without impacting the rest of the bot
 
 class ControlCogsCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
     
-    # Hidden means it won't show up on the default help.
+    # Loads a cog/extension - `cog` parameter must be a dot-separated path, e.g. cogs.gifs
     @commands.command(name='load', hidden=True)
     @checks.is_mod()
     async def ext_load(self, ctx, *, cog: str):
@@ -22,6 +24,7 @@ class ControlCogsCog(commands.Cog):
             await ctx.send(f'`{cog}` loaded successfully.')
             print(f"Loaded cog {cog}")
 
+    # Unloads cog/extension
     @commands.command(name='unload', hidden=True)
     @checks.is_mod()
     async def ext_unload(self, ctx, *, cog: str):
@@ -35,6 +38,7 @@ class ControlCogsCog(commands.Cog):
         else:
             await ctx.send('**`SUCCESS`**')
 
+    # Reloads a cog/extension
     @commands.command(name='reload', hidden=True)
     @checks.is_mod()
     async def ext_reload(self, ctx, *, cog: str):
@@ -49,12 +53,14 @@ class ControlCogsCog(commands.Cog):
         else:
             await ctx.send('**`SUCCESS`**')
 
+    # Sync any application commands / slash commands
     @commands.command()
     @checks.is_mod()
     async def sync(self, ctx):
         await self.bot.tree.sync()
         return await ctx.reply("Commands synced")
 
+    # Gets list of current loaded extensions
     @commands.command(name='extensions', hidden=True)
     @checks.is_mod()
     async def ext_get(self, ctx):
