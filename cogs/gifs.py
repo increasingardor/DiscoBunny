@@ -32,8 +32,6 @@ class Gifs(commands.Cog):
                     or (datetime.now() - self.gif_cooldowns[ctx.author.name]).seconds > int(await self.bot.settings.get("gif_cooldown")) 
                     or ctx.author.top_role >= discord.utils.get(ctx.guild.roles, name=await self.bot.settings.get("mod_role"))):
                 payload = {'name': gif_name.lower()}
-        #        r = requests.get(f"https://counter.heyitsjustbunny.com/get_gif", params=payload)
-#                async with self.bot.session as session:
                 async with self.bot.session.get("https://counter.heyitsjustbunny.com/get_gif", params=payload) as r:
                     data = await r.json()
                 if data["url"] == "Gif does not exist!":
@@ -90,7 +88,6 @@ class Gifs(commands.Cog):
             if not validators.url(gif_url):
                 await ctx.send(f"`{gif_url}` is not a valid URL. Make sure you're using the correct order: `!gif add gif-name gif-url [nsfw]`.")
             else:
-#                r = requests.post(f"https://counter.heyitsjustbunny.com/add_gif?name={gif_name.lower()}&url={urllib.parse.quote(gif_url, safe='')}&nsfw={nsfw}")
                 payload = {"name":gif_name.lower(), "url": urllib.parse.quote(gif_url, safe=''), "nsfw": nsfw}
                 async with self.bot.session.post(f"https://counter.heyitsjustbunny.com/add_gif?name={gif_name.lower()}&url={urllib.parse.quote(gif_url, safe='')}&nsfw={nsfw}") as r:#?name={gif_name.lower()}&url={urllib.parse.quote(gif_url, safe='')}&nsfw={nsfw}") as r:
                     data = await r.json()
