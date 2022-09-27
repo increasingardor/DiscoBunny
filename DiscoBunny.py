@@ -60,5 +60,5 @@ class Disco(commands.Bot):
         else:
             raise error 
 # Defines bot variable, runs bot
-bot = Disco(command_prefix=get_prefix, description=description, intents=discord.Intents.all(), help=commands.DefaultHelpCommand())#, application_id=961325151021043802)
+bot = Disco(command_prefix=get_prefix, description=description, intents=discord.Intents.all(), help=commands.DefaultHelpCommand())
 bot.run(TOKEN)
