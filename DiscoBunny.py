@@ -54,7 +54,10 @@ class Disco(commands.Bot):
             row = await self.db.execute("select text from commands where name = ?", (ctx.invoked_with,))
             command = await row.fetchone()
             if command:
-                return await ctx.send(command["text"])
+                if ctx.message.reference:
+                    return await ctx.message.reference.resolved.reply(command["text"])
+                else:
+                    return await ctx.send(command["text"])
             else:
                 raise error
         else:
