@@ -57,11 +57,18 @@ class Disco(commands.Bot):
                 if ctx.message.reference:
                     return await ctx.message.reference.resolved.reply(command["text"])
                 else:
-                    return await ctx.send(command["text"])
+                    return await ctx.reply(command["text"])
             else:
                 raise error
         else:
-            raise error 
+            raise error
+
 # Defines bot variable, runs bot
 bot = Disco(command_prefix=get_prefix, description=description, intents=discord.Intents.all(), help=commands.DefaultHelpCommand())
+
+@bot.command(name="bot-stop")
+async def bot_stop(ctx):
+    await bot.close()
+    exit()
+
 bot.run(TOKEN)
