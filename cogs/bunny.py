@@ -135,6 +135,13 @@ class Bunny(commands.Cog):
     @bunny.command(name="untagged")
     @checks.is_level_10()
     async def bunny_untagged(self, ctx):
+        """
+        Add tags to untagged posts.
+        
+        A link will be sent. User has five minutes to review the post and then send space-separated words to tag the post with.
+        Any words not already in the tag database will prompt if you want to add as a new tag.
+        For a list of existing tags, use !bunny tags
+        """
         # Gets untagged posts and presents them for tagging, one at a time.
         posts = await self.get_untagged_posts()
         if posts:
@@ -279,6 +286,11 @@ class Bunny(commands.Cog):
     @bunny.command(name="tag")
     @checks.is_level_10()
     async def bunny_tag(self, ctx, reddit_id, *tags):
+        """
+        Add tags to a post.
+        
+        Tag a Reddit post (using the Reddit ID of the post) to add additional tags to a post.
+        """
         # Manually tag a post by Reddit ID
         async with aiosqlite.connect("bunny.db") as db:
             db.row_factory = aiosqlite.Row
@@ -309,6 +321,11 @@ class Bunny(commands.Cog):
 
     @bunny.command(name="tags")
     async def bunny_tags(self, ctx):
+        """
+        List of tags
+        
+        Will list all tags that have five or more posts in the database, in descending order.
+        """
         # Get list of all tags (more than five posts) and count
         async with aiosqlite.connect("bunny.db") as db:
             db.row_factory = aiosqlite.Row
