@@ -283,7 +283,7 @@ class Bunny(commands.Cog):
 
     @bunny.command(name="tag")
     @checks.is_level_10()
-    async def bunny_tag(self, ctx, reddit_id, *tags):
+    async def bunny_tag(self, ctx, reddit_id: str = commands.parameter(description="The Reddit ID for post to tag, usually 6 characters long"), *tags: str):
         """
         Add tags to a post.
         
