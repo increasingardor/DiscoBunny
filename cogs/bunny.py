@@ -133,7 +133,7 @@ class Bunny(commands.Cog):
             raise error
 
     @bunny.command(name="untagged")
-    @checks.is_mod()
+    @checks.is_level_10()
     async def bunny_untagged(self, ctx):
         # Gets untagged posts and presents them for tagging, one at a time.
         posts = await self.get_untagged_posts()
@@ -277,7 +277,7 @@ class Bunny(commands.Cog):
             await db.commit()
 
     @bunny.command(name="tag")
-    @checks.is_mod()
+    @checks.is_level_10()
     async def bunny_tag(self, ctx, reddit_id, *tags):
         # Manually tag a post by Reddit ID
         async with aiosqlite.connect("bunny.db") as db:
