@@ -138,9 +138,7 @@ class Bunny(commands.Cog):
         """
         Add tags to untagged posts.
         
-        A link will be sent. User has five minutes to review the post and then send space-separated words to tag the post with.
-        Any words not already in the tag database will prompt if you want to add as a new tag.
-        For a list of existing tags, use !bunny tags
+        A link will be sent. User has five minutes to review the post and then send space-separated words to tag the post with. Any words not already in the tag database will prompt if you want to add as a new tag. For a list of existing tags, use !bunny tags
         """
         # Gets untagged posts and presents them for tagging, one at a time.
         posts = await self.get_untagged_posts()
