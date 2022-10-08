@@ -311,6 +311,7 @@ class Bunny(commands.Cog):
     async def bunny_tags(self, ctx):
         # Get list of all tags (more than five posts) and count
         async with aiosqlite.connect("bunny.db") as db:
+            db.row_factory = aiosqlite.Row
             rows = await db.execute("select t.name, count(pt.tag_id) as count from tags t inner join post_tags pt on t.tag_id = pt.tag_id group by t.name order by count(pt.tag_id) desc")
             tags = await rows.fetchall()
         tags_list = [f"{tag['name']}\t{tag['count']}" for tag in tags if tag[1] > 4]
