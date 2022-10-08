@@ -52,7 +52,7 @@ def is_level_10(role=None):
         level9 = discord.utils.get(guild_roles, name="Level 9")
         if creep in member_roles:
             raise CreepError()
-        elif not rolee:
+        elif not role:
             return top_role > level9
         else:
             passed_role = discord.utils.get(guild_roles, name=role)
