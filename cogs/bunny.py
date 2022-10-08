@@ -174,7 +174,7 @@ class Bunny(commands.Cog):
         )
         reddit_post = await reddit.submission(id=post["reddit_id"])
         await ctx.send(f"Please provide space separated tags for this post:\nhttp://old.reddit.com{reddit_post.permalink}") 
-        reddit.close()
+        await reddit.close()
         
         # Waits for response from original author for five minutes.
         try:
@@ -256,7 +256,7 @@ class Bunny(commands.Cog):
                 else:
                     if is_yes(msg.content):
                         await self.add_tag(ctx, tag)                    
-                        row = db.execute("select tag_id from tags where name = ?", (tag,))
+                        row = await db.execute("select tag_id from tags where name = ?", (tag,))
                         result = await row.fetchone()
                     elif is_no(msg.content):
                         await ctx.send(f"Tag {tag} not inserted.")
