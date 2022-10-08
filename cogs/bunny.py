@@ -1,3 +1,4 @@
+import aiosqlite
 import discord
 from discord.ext import commands
 import gspread
@@ -45,51 +46,53 @@ class Bunny(commands.Cog):
 
             # Pulls random response
             rand_response = random.randint(0, len(self.responses) - 1)
-            await ctx.send(self.responses[rand_response])
+            original = await ctx.send(self.responses[rand_response])
             post_list = []
 
-            # If no tag was provided, pulls list of all posts from database
-            if tag is None:
-                result = await self.bot.db.execute("select reddit_id, post_id from posts")
-                posts = await result.fetchall()
-            else:
-                # Checks to see if the provided tag exists; if it does, pulls posts with that tag
-                result = await self.bot.db.execute("select tag_id from tags where name = ?", (tag,))
-                tag_entry = await result.fetchone()
-                if tag_entry:
-                    result = await self.bot.db.execute("select p.reddit_id, p.post_id from posts p inner join post_tags pt on p.post_id = pt.post_id inner join tags t on pt.tag_id = t.tag_id where t.tag_id = ?", (tag_entry["tag_id"],))
+            async with aiosqlite.connect("bunny.db") as db:
+                db.row_factory = aiosqlite.Row
+                # If no tag was provided, pulls list of all posts from database
+                if tag is None:
+                    result = await db.execute("select reddit_id, post_id from posts")
                     posts = await result.fetchall()
                 else:
-                    # Pulls all posts if the tag doesn't exist
-                    await ctx.send(f"Tag `{tag}` does not exist, getting random post.")
-                    result = await self.bot.db.execute("select reddit_id, post_id from posts")
-                    posts = await result.fetchall()
+                    # Checks to see if the provided tag exists; if it does, pulls posts with that tag
+                    result = await db.execute("select tag_id from tags where name = ?", (tag,))
+                    tag_entry = await result.fetchone()
+                    if tag_entry:
+                        result = await db.execute("select p.reddit_id, p.post_id from posts p inner join post_tags pt on p.post_id = pt.post_id inner join tags t on pt.tag_id = t.tag_id where t.tag_id = ?", (tag_entry["tag_id"],))
+                        posts = await result.fetchall()
+                    else:
+                        # Pulls all posts if the tag doesn't exist
+                        await ctx.send(f"Tag `{tag}` does not exist, getting random post.")
+                        result = await db.execute("select reddit_id, post_id from posts")
+                        posts = await result.fetchall()
 
-            # Pulls random post from list
-            post_list = [post for post in posts]
-            random_post = random.choice(post_list)
-            selected_post = await reddit.submission(id=random_post["reddit_id"])
+                # Pulls random post from list
+                post_list = [post for post in posts]
+                random_post = random.choice(post_list)
+                selected_post = await reddit.submission(id=random_post["reddit_id"])
 
-            # Grabs all tags for the selected post to add to embed
-            result = await self.bot.db.execute("select t.name from tags t inner join post_tags pt on t.tag_id = pt.tag_id where pt.post_id = ?", (random_post["post_id"],))
-            post_tags = await result.fetchall()
-            selected_post.tags = " ".join([f"`{post_tag['name']}`" for post_tag in post_tags])
-            await ctx.send(self.found[rand_response])
+                # Grabs all tags for the selected post to add to embed
+                result = await db.execute("select t.name from tags t inner join post_tags pt on t.tag_id = pt.tag_id where pt.post_id = ?", (random_post["post_id"],)) #self.bot.db.execute("select t.name from tags t inner join post_tags pt on t.tag_id = pt.tag_id where pt.post_id = ?", (random_post["post_id"],))
+                post_tags = await result.fetchall()
+                selected_post.tags = " ".join([f"`{post_tag['name']}`" for post_tag in post_tags])
+                await ctx.send(self.found[rand_response])
 
-            # Parses image URL from Reddit data, creates embed
-            image_url = self.get_image_url(selected_post)
-            embed = self.embed_from_post(ctx, selected_post, image_url)
+                # Parses image URL from Reddit data, creates embed
+                image_url = self.get_image_url(selected_post)
+                embed = self.embed_from_post(ctx, selected_post, image_url)
 
-            # Checks if channel is marked NSFW for image masking, sends embed, closes Reddit
-            if not ctx.channel.is_nsfw() or ctx.channel.id == 940258352775192639:
-                embed.set_image(url=None)
-                if embed.video:
-                    embed.video.url = None
-                await ctx.send(embed=embed)
-                await ctx.send(f"||{image_url} ||")
-            else:
-                await ctx.send(embed=embed)
-            await reddit.close()
+                # Checks if channel is marked NSFW for image masking, sends embed, closes Reddit
+                if not ctx.channel.is_nsfw() or ctx.channel.id == 940258352775192639:
+                    embed.set_image(url=None)
+                    if embed.video:
+                        embed.video.url = None
+                    await ctx.send(embed=embed)
+                    await ctx.send(f"||{image_url} ||")
+                else:
+                    await ctx.send(embed=embed)
+                await reddit.close()
 
     def embed_from_post(self, ctx, selected_post, image_url):
         # Builds embed
