@@ -144,8 +144,9 @@ class Bunny(commands.Cog):
 
     async def get_untagged_posts(self):
         # Gets list of untagged posts from database
-        result = await self.bot.db.execute("select p.post_id, p.reddit_id from posts p left join post_tags pt on p.post_id = pt.post_id where pt.tag_id is null order by p.post_id")
-        posts = await result.fetchall()
+        async with aiosqlite.connect("bunny.db") as db:
+            result = await db.execute("select p.post_id, p.reddit_id from posts p left join post_tags pt on p.post_id = pt.post_id where pt.tag_id is null order by p.post_id")
+            posts = await result.fetchall()
         return posts
 
 
@@ -240,70 +241,75 @@ class Bunny(commands.Cog):
             return msg.author.id == ctx.author.id and msg.channel == ctx.channel
         
         # Gets tag by name from database
-        row = await self.bot.db.execute("select tag_id from tags where name = ?", (tag,))
-        result = await row.fetchone()
-        if not result:
-            await ctx.send(f"Tag {tag} does not exist in the database - create it (y/n)?")
-            try:
-                msg = await self.bot.wait_for("message", check=is_author, timeout=15.0)
-            except asyncio.TimeoutError:
-                await ctx.send(f"Tag {tag} not inserted due to no response.")
-                return None
-            else:
-                if is_yes(msg.content):
-                    await self.add_tag(ctx, tag)                    
-                    row = await self.bot.db.execute("select tag_id from tags where name = ?", (tag,))
-                    reslt = await row.fetchone()
-                elif is_no(msg.content):
-                    await ctx.send(f"Tag {tag} not inserted.")
+        async with aiosqlite.connect("bunny.db") as db:
+            row = await db.execute("select tag_id from tags where name = ?", (tag,))
+            result = await row.fetchone()
+            if not result:
+                await ctx.send(f"Tag {tag} does not exist in the database - create it (y/n)?")
+                try:
+                    msg = await self.bot.wait_for("message", check=is_author, timeout=15.0)
+                except asyncio.TimeoutError:
+                    await ctx.send(f"Tag {tag} not inserted due to no response.")
                     return None
+                else:
+                    if is_yes(msg.content):
+                        await self.add_tag(ctx, tag)                    
+                        row = db.execute("select tag_id from tags where name = ?", (tag,))
+                        result = await row.fetchone()
+                    elif is_no(msg.content):
+                        await ctx.send(f"Tag {tag} not inserted.")
+                        return None
         return result["tag_id"]
 
     async def add_tag(self, ctx, tag):
         # Adds new tag to database
-        await self.bot.db.execute("insert into tags (name) values (?)", (tag,))
-        await self.bot.db.commit()
+        async with aiosqlite.connect("bunny.db") as db:
+            await db.execute("insert into tags (name) values (?)", (tag,))
+            await db.commit()
         await ctx.send(f"Tag {tag} inserted.")
 
     async def tag_post(self, tag_id, post_id):
         # Tags a post in the database
-        await self.bot.db.execute("insert into post_tags (post_id, tag_id) values (?,?)", (post_id, tag_id))
-        await self.bot.db.commit()
+        async with aiosqlite.connect("bunny.db") as db:
+            await db.execute("insert into post_tags (post_id, tag_id) values (?,?)", (post_id, tag_id))
+            await db.commit()
 
     @bunny.command(name="tag")
     @checks.is_mod()
     async def bunny_tag(self, ctx, reddit_id, *tags):
         # Manually tag a post by Reddit ID
-        if tags:
-            row = await self.bot.db.execute("select post_id from posts where reddit_id = ?", (reddit_id,))
-            post_db = await row.fetchone()
-            if not post_db:
-                return await ctx.send(f"A post with the id {reddit_id} cannot be found.")
-            else:
-                post_id = post_db["post_id"]
-                rows = await self.bot.db.execute("select t.name from tags t inner join post_tags pt on t.tag_id = pt.tag_id where pt.post_id = ?", (post_id,))
-                tags_db = await rows.fetchall()
-                existing_tags = [tag["name"] for tag in tags_db]
-                duplicates = [tag for tag in tags if tag in existing_tags]
-                new_tags = [tag for tag in tags if tag not in existing_tags]
-                if duplicates:
-                    await ctx.send(f"Skipping the following tags, as this post already has them: {' '.join(duplicates)}")
-                if new_tags:
-                    added_tags = []
-                    for tag in new_tags:
-                        tag_id = await self.process_tag(ctx, tag)
-                        if tag_id:
-                            await self.tag_post(tag_id, post_id)
-                            added_tags.append(tag)
-                    return await ctx.send(f"Added tags {' '.join(added_tags)}")
+        async with aiosqlite.connect("bunny.db") as db:
+            if tags:
+                row = await db.execute("select post_id from posts where reddit_id = ?", (reddit_id,))
+                post_db = await row.fetchone()
+                if not post_db:
+                    return await ctx.send(f"A post with the id {reddit_id} cannot be found.")
                 else:
-                    await ctx.send("You provided no new tags. No changes made.") 
+                    post_id = post_db["post_id"]
+                    rows = await db.execute("select t.name from tags t inner join post_tags pt on t.tag_id = pt.tag_id where pt.post_id = ?", (post_id,))
+                    tags_db = await rows.fetchall()
+                    existing_tags = [tag["name"] for tag in tags_db]
+                    duplicates = [tag for tag in tags if tag in existing_tags]
+                    new_tags = [tag for tag in tags if tag not in existing_tags]
+                    if duplicates:
+                        await ctx.send(f"Skipping the following tags, as this post already has them: {' '.join(duplicates)}")
+                    if new_tags:
+                        added_tags = []
+                        for tag in new_tags:
+                            tag_id = await self.process_tag(ctx, tag)
+                            if tag_id:
+                                await self.tag_post(tag_id, post_id)
+                                added_tags.append(tag)
+                        return await ctx.send(f"Added tags {' '.join(added_tags)}")
+                    else:
+                        await ctx.send("You provided no new tags. No changes made.") 
 
     @bunny.command(name="tags")
     async def bunny_tags(self, ctx):
         # Get list of all tags (more than five posts) and count
-        rows = await self.bot.db.execute("select t.name, count(pt.tag_id) as count from tags t inner join post_tags pt on t.tag_id = pt.tag_id group by t.name order by count(pt.tag_id) desc")
-        tags = await rows.fetchall()
+        async with aiosqlite.connect("bunny.db") as db:
+            rows = await db.execute("select t.name, count(pt.tag_id) as count from tags t inner join post_tags pt on t.tag_id = pt.tag_id group by t.name order by count(pt.tag_id) desc")
+            tags = await rows.fetchall()
         tags_list = [f"{tag['name']}\t{tag['count']}" for tag in tags if tag[1] > 4]
         tags_msg = "\n".join(tags_list)
         await ctx.send(f"```Tag\tCount\n---------------\n{tags_msg}\n```")
@@ -312,8 +318,9 @@ class Bunny(commands.Cog):
     @checks.is_mod()
     async def del_post(self, ctx, reddit_id):
         # Delete a post from the database
-        rows = await self.bot.db.execute("select post_id from posts where reddit_id = ?", (reddit_id,))
-        post = await rows.fetchone()
+        async with aiosqlite.connect("bunny.db") as db:
+            rows = await db.execute("select post_id from posts where reddit_id = ?", (reddit_id,))
+            post = await rows.fetchone()
         if post is not None:
             await self.bot.db.execute("delete from post_tags where post_id = ?", (post,))
             await self.bot.db.execute("delete from posts where post_id = ?", (post,))
