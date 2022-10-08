@@ -145,6 +145,7 @@ class Bunny(commands.Cog):
     async def get_untagged_posts(self):
         # Gets list of untagged posts from database
         async with aiosqlite.connect("bunny.db") as db:
+            db.row_factory = aiosqlite.Row
             result = await db.execute("select p.post_id, p.reddit_id from posts p left join post_tags pt on p.post_id = pt.post_id where pt.tag_id is null order by p.post_id")
             posts = await result.fetchall()
         return posts
@@ -242,6 +243,7 @@ class Bunny(commands.Cog):
         
         # Gets tag by name from database
         async with aiosqlite.connect("bunny.db") as db:
+            db.row_factory = aiosqlite.Row
             row = await db.execute("select tag_id from tags where name = ?", (tag,))
             result = await row.fetchone()
             if not result:
@@ -279,6 +281,7 @@ class Bunny(commands.Cog):
     async def bunny_tag(self, ctx, reddit_id, *tags):
         # Manually tag a post by Reddit ID
         async with aiosqlite.connect("bunny.db") as db:
+            db.row_factory = aiosqlite.Row
             if tags:
                 row = await db.execute("select post_id from posts where reddit_id = ?", (reddit_id,))
                 post_db = await row.fetchone()
