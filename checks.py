@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 
 # Various Checks
 # In discord.py a check is a function run before a command to determine if it should be run. 
@@ -41,6 +42,32 @@ def is_level_5(role=None):
             passed_role = discord.utils.get(guild_roles, name=role)
             return top_role > level4 or passed_role in member_roles
     return commands.check(predicate)
+
+def app_is_level_5():
+    def predicate(interaction):
+        # This checks to see if it's me; lets me run commands in DMs for testing
+        print(f"{interaction.user.name} | {interaction.user.top_role.name}")
+        if interaction.user.id == 310957860551000082:
+            return True
+        guild = interaction.client.guilds[0]
+        author = guild.get_member(interaction.user.id)
+        # Member's top role
+        top_role = author.top_role
+        # All roles in the server
+        guild_roles = guild.roles
+        # The creep role
+        creep = discord.utils.get(guild_roles, name="Creep")
+        # All of member's roles
+        member_roles = author.roles
+        # The Level 4 role
+        level4 = discord.utils.get(guild_roles, name="Level 4")
+        # Raise error if has Creep role
+        if creep in member_roles:
+            raise CreepError()
+        else:
+            print(top_role > level4)
+            return top_role > level4
+    return app_commands.check(predicate)
 
 # Same as above, but Level 10
 def is_level_10(role=None):

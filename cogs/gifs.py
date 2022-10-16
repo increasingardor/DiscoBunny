@@ -23,7 +23,8 @@ class Gifs(commands.Cog):
         self.gif_cooldowns = {}
 
     @commands.group(invoke_without_command=True, aliases=["g"])
-    async def gif(self, ctx, *, gif_name):
+    #@commands.hybrid_group(fallback="get")
+    async def gif(self, ctx, *, gif_name: str=commands.parameter(description="The name of the gif to retrieve")):
         """Get a gif from the database
 
         Retrieves one gif from the database. This gif will be masked with a spoiler in #general or any channel not marked NSFW.
@@ -62,7 +63,7 @@ class Gifs(commands.Cog):
 
     @gif.command(name="add")
     @checks.is_level_5("GIF Master")
-    async def gif_add(self, ctx, *, text):
+    async def gif_add(self, ctx, *, text: str):
         """Add a new gif to the database.
         
         Usage: !gif <name> <url> [nsfw]
