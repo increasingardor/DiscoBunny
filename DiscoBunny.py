@@ -68,9 +68,4 @@ class Disco(commands.Bot):
 # Defines bot variable, runs bot
 bot = Disco(command_prefix=get_prefix, description=description, intents=discord.Intents.all(), help=commands.DefaultHelpCommand())
 
-@bot.command(name="bot-stop")
-async def bot_stop(ctx):
-    await bot.close()
-    exit()
-
 bot.run(TOKEN)
