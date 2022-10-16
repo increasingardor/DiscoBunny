@@ -60,7 +60,7 @@ class GifsApp(commands.Cog):
     #     await ctx.send(message)
 
     @gifs.command(name="add")
-    @checks.is_level_5("GIF Master")
+    @checks.app_is_level_5("GIF Master")
     @app_commands.describe(name="the new gif name", url="the URL to the new GIF", nsfw="whether the new GIF is NSFW")
     @app_commands.choices(nsfw=[Choice(name="nsfw", value=1), Choice(name="sfw", value=0)])
     async def gif_add(self, interaction: discord.Interaction, name: str, url: str, nsfw: Choice[int]=1):
