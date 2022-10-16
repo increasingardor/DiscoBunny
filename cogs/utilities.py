@@ -2,7 +2,6 @@ from pydoc import describe
 import typing
 import discord
 from discord.ext import commands
-from discord import Color, app_commands
 import pytz
 import checks
 import datetime
