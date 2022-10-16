@@ -7,8 +7,6 @@ import pytz
 import checks
 import datetime
 
-# Not currently working
-
 class Utilities(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -51,8 +49,24 @@ class Utilities(commands.Cog):
         else:
             reply_to = ctx
         greet = f"{member.mention} " if member else ""
-        msg = f"{greet}Come see Bunny stream! Twice a week at <t:{stamp}:t>. Come see her scream her head off playing horror games, chilling in casual games, or just chatting.\n\nThe next stream is <t:{stamp}>. See her at https://twitch.tv/heyitsjustbunny" 
-        await reply_to.reply(msg)
+        msg = f"{greet}Come see Bunny stream! Twice a week at <t:{stamp}:t>. Come see her scream her head off playing horror games, chilling in casual games, or just chatting.\n\nThe next stream is <t:{stamp}>. Come check her out!"
+        view = StreamingRole()
+        
+        await reply_to.reply(msg, view=view)
+
+class StreamingRole(discord.ui.View):
+    def __init__(self):
+        super().__init__()
+        url_button = discord.ui.Button(label="Bunny's Twitch!", style=discord.ButtonStyle.link, url="https://twitch.tv/heyitsjustbunny")
+        self.add_item(url_button)
+    
+    @discord.ui.button(label="Get notified when Bunny streams!", style=discord.ButtonStyle.blurple)
+    async def add_role(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild = interaction.client.guilds[0]
+        role = guild.get_role(976526774332694529)
+        member = guild.get_member(interaction.user.id)
+        await member.add_roles(role)
+        await interaction.response.send_message(f"You have been given the {role.name} role! You will be notified in Discord when Bunny starts streaming.\n\nIf you want to remove this role, you can do so in <#940307355495727104>.", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Utilities(bot))

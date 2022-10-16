@@ -39,8 +39,8 @@ class Bunny(commands.Cog):
         # If no subcommand is used, connects to Reddit
         if ctx.invoked_subcommand is None:
             reddit = asyncpraw.Reddit(
-                client_id=await self.bot.settings.get("client_id"),
-                client_secret=await self.bot.settings.get("client_secret"),
+                client_id=self.bot.settings.client_id,#get("client_id"),
+                client_secret=self.bot.settings.client_secret,#get("client_secret"),
                 user_agent="BunnitBot 1.1"
             )
 
@@ -84,7 +84,7 @@ class Bunny(commands.Cog):
                 embed = self.embed_from_post(ctx, selected_post, image_url)
 
                 # Checks if channel is marked NSFW for image masking, sends embed, closes Reddit
-                if not ctx.channel.is_nsfw() or ctx.channel.id == 940258352775192639:
+                if (not isinstance(ctx.channel, discord.DMChannel) and not ctx.channel.is_nsfw()) or ctx.channel.id == 940258352775192639:
                     embed.set_image(url=None)
                     if embed.video:
                         embed.video.url = None
@@ -132,7 +132,7 @@ class Bunny(commands.Cog):
         else:
             raise error
 
-    @bunny.command(name="untagged")
+    @bunny.command(name="untagged", hidden=True)
     @checks.is_level_10()
     async def bunny_untagged(self, ctx):
         """
@@ -173,8 +173,8 @@ class Bunny(commands.Cog):
         # Pulls post from end of list and gets the post from Reddit, sends message to Discord
         post = posts.pop()
         reddit = asyncpraw.Reddit(
-            client_id=await self.bot.settings.get("client_id"),#self.CLIENT_ID,
-            client_secret=await self.bot.settings.get("client_secret"),#self.CLIENT_SECRET,
+            client_id=self.bot.settings.client_id,#get("client_id"),#self.CLIENT_ID,
+            client_secret=self.bot.settings.client_secret,#get("client_secret"),#self.CLIENT_SECRET,
             user_agent="BunnitBot 1.1",
         )
         reddit_post = await reddit.submission(id=post["reddit_id"])
@@ -281,7 +281,7 @@ class Bunny(commands.Cog):
             await db.execute("insert into post_tags (post_id, tag_id) values (?,?)", (post_id, tag_id))
             await db.commit()
 
-    @bunny.command(name="tag")
+    @bunny.command(name="tag", hidden=True)
     @checks.is_level_10()
     async def bunny_tag(self, ctx, reddit_id: str = commands.parameter(description="The Reddit ID for post to tag, usually 6 characters long"), *tags: str):
         """
@@ -340,13 +340,13 @@ class Bunny(commands.Cog):
         async with aiosqlite.connect("bunny.db") as db:
             rows = await db.execute("select post_id from posts where reddit_id = ?", (reddit_id,))
             post = await rows.fetchone()
-        if post is not None:
-            await self.bot.db.execute("delete from post_tags where post_id = ?", (post,))
-            await self.bot.db.execute("delete from posts where post_id = ?", (post,))
-            await self.bot.db.commit()
-            return await ctx.send(f"Post with id {reddit_id} deleted.")
-        else:
-            return await ctx.send(f"Could not find post with id {reddit_id}.")
+            if post is not None:
+                await db.execute("delete from post_tags where post_id = ?", (post,))
+                await db.execute("delete from posts where post_id = ?", (post,))
+                await db.commit()
+                return await ctx.send(f"Post with id {reddit_id} deleted.")
+            else:
+                return await ctx.send(f"Could not find post with id {reddit_id}.")
 
     @commands.group(invoke_without_command=True)
     @checks.is_mod()
@@ -354,7 +354,7 @@ class Bunny(commands.Cog):
         # Group of commands that controls Reddit posts being posted to Discord
         # This command by itself without a subcommand returns the current setting
         if ctx.invoked_subcommand is None:
-            reddit_off = bool(int(await self.bot.settings.get("reddit_off")))
+            reddit_off = bool(int(self.bot.settings.reddit_off))#get("reddit_off")))
             on_off = "off" if reddit_off else "on"
             return await ctx.send(f"Reddit posts are currently {on_off}.")
 
@@ -362,22 +362,22 @@ class Bunny(commands.Cog):
     @checks.is_mod()
     async def reddit_off(self, ctx):
         # Turns Reddit posting to off
-        reddit_off = bool(int(self.bot.settings.get("reddit_off")))
+        reddit_off = bool(int(self.bot.settings.reddit_off))#get("reddit_off")))
         if reddit_off:
             return await ctx.send("Reddit posts are already off")
         else:
-            await self.bot.settings.set("reddit_off", 1)
+            self.bot.settings.reddit_off = 1#set("reddit_off", 1)
             return await ctx.send("Reddit posts turned off.")
 
     @reddit.command(name="on")
     @checks.is_mod()
     async def reddit_on(self, ctx):
         # Turns Reddit posting to on
-        reddit_off = bool(int(self.bot.settings.get("reddit_off")))
+        reddit_off = bool(int(self.bot.settings.reddit_off))#get("reddit_off")))
         if not reddit_off:
             return await ctx.send("Reddit posts are already on.")
         else:
-            await self.bot.settings.set("reddit_off", 0)
+            self.bot.settings.reddit_off = 1#set("reddit_off", 0)
             return await ctx.send("Reddit posts turned on.")
 
     @commands.Cog.listener()
@@ -391,7 +391,7 @@ class Bunny(commands.Cog):
         # If we're in the right channel and the message is not exactly equal to yes/YES/YeS etc.
         if message.channel.name == "are-you-pooping" and message.content.lower() != "yes":
             # Excludes mods from being deleted.
-            if message.author.top_role < discord.utils.get(message.guild.roles, name=await self.bot.settings.get("mod_role")):
+            if message.author.top_role < discord.utils.get(message.guild.roles, name=self.bot.settings.mod_role):#get("mod_role")):
                 try: 
                     # Deletes message after 1s delay
                     await asyncio.sleep(1)
@@ -403,7 +403,7 @@ class Bunny(commands.Cog):
                 except Exception as e:
                     error_msg = f"ERROR: {type(e).__name__}: {e}"
                     print(error_msg)
-                    owner = message.guild.get_member(await self.bot.settings.get("owner_id"))
+                    owner = message.guild.get_member(self.bot.settings.owner_id)#get("owner_id"))
                     await owner.send(error_msg)
 
     @commands.Cog.listener()
@@ -420,7 +420,7 @@ class Bunny(commands.Cog):
             except Exception as e:
                 error_msg = f"ERROR: {type(e).__name__}: {e}"
                 print(error_msg)
-                owner = before.guild.get_member(await self.bot.settings.get("owner_id"))
+                owner = before.guild.get_member(self.bot.settings.owner_id)#get("owner_id"))
                 await owner.send(error_msg)
 
     @commands.command()
@@ -438,7 +438,7 @@ class Bunny(commands.Cog):
     async def number_listener(self, message):
         # If numberwang is on, checks channel of message, whether user is a mod, and if the message is a digit.
         # Deletes if is in general, not a mod, and number is not a digit.
-        if self.numberwang and message.channel.id == 940258352775192639 and message.author.top_role < discord.utils.get(message.guild.roles, name=await self.bot.settings.get("mod_role")):
+        if self.numberwang and message.channel.id == 940258352775192639 and message.author.top_role < discord.utils.get(message.guild.roles, name=self.bot.settings.mod_role):#get("mod_role")):
             if not message.content.isdigit():
                 await message.delete()
 
@@ -482,7 +482,7 @@ class Bunny(commands.Cog):
         embed = discord.Embed(title="Email Needed!", color=discord.Color.brand_green(), description="As Bunny transitions to Fansly, we need some information to match you up between Discord and the Stripe payment info to figure out how long you subscribed for. Just click the button below and enter the email address you used when signing up for the membership, and we'll get you a link to Fansly for your membership!")
         msg = await channel.send(embed=embed, view=membership.GetMemberInfo())
         print(msg.id)
-        await self.bot.settings.set("member_view", msg.id)
+        self.bot.settings.member_view = msg.id#set("member_view", msg.id)
 
 async def setup(bot):
     await bot.add_cog(Bunny(bot))

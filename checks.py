@@ -19,14 +19,16 @@ def is_level_5(role=None):
         # This checks to see if it's me; lets me run commands in DMs for testing
         if ctx.author.id == 310957860551000082:
             return True
+        guild = ctx.bot.guilds[0]
+        author = guild.get_member(ctx.author.id)
         # Member's top role
-        top_role = ctx.author.top_role
+        top_role = author.top_role
         # All roles in the server
-        guild_roles = ctx.guild.roles
+        guild_roles = guild.roles
         # The creep role
         creep = discord.utils.get(guild_roles, name="Creep")
         # All of member's roles
-        member_roles = ctx.author.roles
+        member_roles = author.roles
         # The Level 4 role
         level4 = discord.utils.get(guild_roles, name="Level 4")
         # Raise error if has Creep role
@@ -45,10 +47,12 @@ def is_level_10(role=None):
     def predicate(ctx):
         if ctx.author.id == 310957860551000082:
             return True
-        top_role = ctx.author.top_role
-        guild_roles = ctx.guild.roles
+        guild = ctx.bot.guilds[0]
+        author = guild.get_member(ctx.author.id)
+        top_role = author.top_role
+        guild_roles = guild.roles
         creep = discord.utils.get(guild_roles, name="Creep")
-        member_roles = ctx.author.roles
+        member_roles = author.roles
         level9 = discord.utils.get(guild_roles, name="Level 9")
         if creep in member_roles:
             raise CreepError()
@@ -64,10 +68,12 @@ def level_check(level, role=None):
     def predicate(ctx):
         if ctx.author.id == 310957860551000082:
             return True
-        top_role = ctx.author.top_role
-        guild_roles = ctx.guild.roles
+        guild = ctx.bot.guilds[0]
+        author = guild.get_member(ctx.author.id)
+        top_role = author.top_role
+        guild_roles = guild.roles
         creep = discord.utils.get(guild_roles, name="Creep")
-        member_roles = ctx.author.roles
+        member_roles = author.roles
         level_role = discord.utils.get(guild_roles, name=f"Level {level}")
         if creep in member_roles:
             raise CreepError()
@@ -95,6 +101,6 @@ def has_role_in_list(roles):
 # Checks to see if member is me (for use in DMs) or has Mod role or higher.
 def is_mod():
     def predicate(ctx):
-        return ctx.author.id == 310957860551000082 or ctx.author.top_role >= discord.utils.get(ctx.guild.roles, name="Moderator")
+        return ctx.author.id == 310957860551000082 or ctx.author.top_role >= discord.utils.get(ctx.guild.roles, name=ctx.bot.settings.mod_role)#"Moderator")
 
     return commands.check(predicate)

@@ -18,7 +18,7 @@ class CustomCommands(commands.Cog):
 
     @commands.group(name="custom", hidden=True)
     async def custom_command(self, ctx):
-        if ctx.invoked_subcommand is None and ctx.author.top_role > discord.utils.get(ctx.guild.roles, name=await self.bot.settings.get("mod_role")):
+        if ctx.invoked_subcommand is None and ctx.author.top_role > discord.utils.get(ctx.guild.roles, name=self.bot.settings.mod_role):#get("mod_role")):
             return await ctx.send("Please use a subcommand.")
 
     @custom_command.command(name="add")

@@ -18,7 +18,7 @@ TOKEN = os.getenv("TOKEN")
 
 # Pull prefix from database, make bot respond when mentioned
 async def get_prefix(_bot, msg):
-    prefix =  await _bot.settings.get("prefix")
+    prefix =  _bot.settings.prefix#await _bot.settings.get("prefix")
     return commands.when_mentioned_or(prefix)(_bot, msg)
 
 # Custom bot class
@@ -29,11 +29,13 @@ class Disco(commands.Bot):
     # Pre-launch setup in async frame: connects to settings database,
     # sets up persistent views, loads cogs
     async def setup_hook(self):
-        self.db = await aiosqlite.connect(os.getenv("DB"))
+        self.db = await aiosqlite.connect("bunny.db")#os.getenv("DB"))
         self.db.row_factory = sqlite3.Row
-        self.settings = Settings(self.db)
+        sets = await self.db.execute("select * from settings")
+        settings = await sets.fetchall()
+        self.settings = Settings(settings)#self.db)
         self.session = aiohttp.ClientSession()
-        member_view = await self.settings.get("member_view")
+        member_view = self.settings.member_view#await self.settings.get("member_view")
         self.add_view(membership.GetMemberInfo(), message_id=int(member_view))
         extensions = get_cogs()
         for extension in extensions:

@@ -30,8 +30,8 @@ class Gifs(commands.Cog):
         """
         if ctx.invoked_subcommand is None:
             if (not ctx.author.name in self.gif_cooldowns 
-                    or (datetime.now() - self.gif_cooldowns[ctx.author.name]).seconds > int(await self.bot.settings.get("gif_cooldown")) 
-                    or ctx.author.top_role >= discord.utils.get(ctx.guild.roles, name=await self.bot.settings.get("mod_role"))):
+                    or (datetime.now() - self.gif_cooldowns[ctx.author.name]).seconds > int(await self.bot.settings.gif_cooldown)#get("gif_cooldown")) 
+                    or ctx.author.top_role >= discord.utils.get(ctx.guild.roles, name=await self.bot.settings.mod_role)):#get("mod_role"))):
                 payload = {'name': gif_name.lower()}
                 async with self.bot.session.get("https://counter.heyitsjustbunny.com/get_gif", params=payload) as r:
                     data = await r.json()
@@ -41,7 +41,7 @@ class Gifs(commands.Cog):
                 else:
                     self.gif_cooldowns[ctx.author.name] = datetime.now()
                     sender = ctx.message.reference.resolved.reply if ctx.message.reference is not None else ctx.send
-                    if data['nsfw'].lower() == "true" and (ctx.channel.id == 940258352775192639 or not ctx.channel.is_nsfw()):
+                    if data['nsfw'].lower() == "true" and (ctx.channel.id == 940258352775192639 or (not isinstance(ctx.channel, discord.DMChannel) and not ctx.channel.is_nsfw())):
                         msg = f"||{data['url']} ||"
                     else:
                         msg = f"{data['url']}"
@@ -71,7 +71,7 @@ class Gifs(commands.Cog):
         """
         if (ctx.channel.name.find("bot-commands") > -1 
                 or ctx.channel.name.find("bots-commands") > -1 
-                or ctx.author.top_role >= discord.utils.get(ctx.guild.roles, name=await self.bot.settings.get("mod_role"))):
+                or ctx.author.top_role >= discord.utils.get(ctx.guild.roles, name=await self.bot.settings.mod_role)):#get("mod_role"))):
             parsed = text.split()
             if parsed[0].lower() in ["add", "update", "delete", "list"]:
                 return await ctx.send("GIF names cannot begin with `add`, `update`, `delete`, or `list`.")

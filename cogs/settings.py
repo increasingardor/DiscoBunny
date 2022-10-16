@@ -5,6 +5,7 @@ import dotenv
 import checks
 from datetime import datetime
 import pytz
+import aiosqlite
 
 # Manage settings for bot
 
@@ -39,22 +40,27 @@ class SettingsCog(commands.Cog):
 
     @settings.command()
     @checks.is_mod()
-    async def update(self, ctx, key, *, value):
+    async def set(self, ctx, key, *, value):
         key = key.lower()
-        keys = await self.bot.settings.keys()
+        keys = [k for k, v in self.bot.settings.__dict__.items()]#await self.bot.settings.keys()
+        self.bot.settings.__setattr__(key, value)
         if key in keys:
-            await self.bot.settings.set(key, value)
-            await ctx.send(f"Setting `{key}` set to `{value}`.")
+            async with aiosqlite.connect("bunny.db") as db:
+                await db.execute("update settings set value = ? where name = ?", (value, key))
+            #await self.bot.settings.set(key, value)
         else:
-            await ctx.send(f"Setting `{key}` does not exist. Please use `!settings add` to add a key.")
+            async with aiosqlite.connect("bunny.db") as db:
+                await db.execute("insert into settings (name, value) values (? , ?)", (key, value))
+                await db.commit()
+        await ctx.send(f"Setting `{key}` set to `{value}`.")
 
     @settings.command()
     @checks.is_mod()
     async def get(self, ctx, key):
         key = key.lower()
-        keys = await self.bot.settings.keys()
+        keys = self.bot.settings.__dict__.keys()#await self.bot.settings.keys()
         if key in keys:
-            value = await self.bot.settings.get(key)
+            value = self.bot.settings.__dict__[key]#await self.bot.settings.get(key)
             await ctx.send(f"{key} = {value}")
         else:
             await ctx.send(f"Setting {key} does not exist. Please use `!settings add` to add a key.")

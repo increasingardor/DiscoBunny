@@ -1,3 +1,4 @@
+import re
 import discord
 from discord.ext import commands
 import os
@@ -35,6 +36,7 @@ class TtsCog(commands.Cog):
             if not voice:
                 await ctx.author.voice.channel.connect()
                 voice = ctx.voice_client
+            text = re.sub(r"<(?P<animated>a?):(?P<name>[a-zA-Z0-9_]{2,32}):(?P<id>[0-9]{18,22})>","",text)
             to_speak = f"{ctx.author.display_name} says: {text}"
             tts = gTTS(text=to_speak, lang="en", tld=domain)
             tts.save(filename)

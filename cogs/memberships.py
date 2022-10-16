@@ -1,3 +1,4 @@
+import aiosqlite
 import discord
 from discord.ext import commands
 import checks
@@ -30,6 +31,18 @@ class Memberships(commands.Cog):
                     embed.description = f"Added role {was_member[0].name} back to member."
                 await channel.send(embed=embed)
 
+    @commands.Cog.listener("on_member_update")
+    async def join_membership(self, before, after):
+        flr = before.guild.get_role(1009880250823491625)
+        cc = before.guild.get_role(1009880071139491860)
+        bh = before.guild.get_role(1009879837667762196)
+        tiers = [flr, cc, bh]
+        is_member = [tier.name for tier in tiers if tier in after.roles]
+        was_member = [tier.name for tier in tiers if tier in before.roles]
+        if is_member and not was_member:
+            channel = before.guild.get_channel(1012043155568332920)
+            await channel.send(f"{after.mention} has joined the {is_member[0]} tier! Welcome to Rabbit Hole+!")
+
     # Turns the automatic add-back of roles on or off
     @commands.hybrid_group(name="manage-roles", invoke_without_command=True)
     @checks.is_mod()
@@ -40,13 +53,17 @@ class Memberships(commands.Cog):
     @manage_roles.command(name="on")
     @checks.is_mod()
     async def manage_roles_on(self, ctx):
-        await self.bot.settings.set("manage_membership_roles", True)
+        self.bot.settings.manage_membership_roles = True#set("manage_membership_roles", True)
+        async with aiosqlite.connect("bunny.db") as db:
+            await db.execute("update settings set value = ? where name = manage_membership_roles", (True,))
         return await ctx.reply("Disco will now manage membership roles.")
 
     @manage_roles.command(name="off")
     @checks.is_mod()
     async def manage_roles_off(self, ctx):
-        await self.bot.settings.set("manage_membership_roles", False)
+        self.bot.settings.manage_membership_roles = False#set("manage_membership_roles", False)
+        async with aiosqlite.connect("bunny.db") as db:
+            await db.execute("update settings set value = ? where name = manage_membership_roles", (False,))
         return await ctx.reply("Disco is no longer managing membership roles.")
 
     # Add or remove FLR role
@@ -108,11 +125,11 @@ class Memberships(commands.Cog):
     # Actual function that adds/removes roles, called by other commands
     async def _manage_roles(self, role, member):
         if role in member.roles:
-            manage = int(await self.bot.settings.get("manage_membership_roles"))
+            manage = int(self.bot.settings.manage_membership_roles)#.get("manage_membership_roles"))
             if manage == 1:
-                await self.bot.settings.set("manage_membership_roles", False)
+                self.bot.settings.manage_membership_roles = False#set("manage_membership_roles", False)
                 await member.remove_roles(role)
-                await self.bot.settings.set("manage_membership_roles", True)
+                self.bot.settings.manage_membership_roles = True#set("manage_membership_roles", True)
             else:
                 await member.remove_roles(role)
             return f"{role.name} removed from {member.display_name}."
