@@ -55,6 +55,9 @@ class Utilities(commands.Cog):
 
     @commands.hybrid_command()
     async def about(self, ctx):
+        """
+        About DiscoBunny
+        """
         embed = discord.Embed(color=discord.Color.blue(), title="About DiscoBunny")
         embed.description = "DiscoBunny is a custom bot written by Ardor specifically for The Rabbit Hole."
         embed.add_field(name="Version", value="2.1", inline=False)
