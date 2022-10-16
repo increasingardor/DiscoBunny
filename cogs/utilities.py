@@ -2,7 +2,7 @@ from pydoc import describe
 import typing
 import discord
 from discord.ext import commands
-from discord import app_commands
+from discord import Color, app_commands
 import pytz
 import checks
 import datetime
@@ -53,6 +53,21 @@ class Utilities(commands.Cog):
         view = StreamingRole()
         
         await reply_to.reply(msg, view=view)
+
+    @commands.hybrid_command()
+    async def about(self, ctx):
+        embed = discord.Embed(color=discord.Color.blue(), title="About DiscoBunny")
+        embed.description = "DiscoBunny is a custom bot written by Ardor specifically for The Rabbit Hole."
+        embed.add_field(name="Version", value="2.1", inline=False)
+        embed.add_field(name="Language", value="Python 3.9", inline=True)
+        embed.add_field(name="Discord Library", value="[discord.py 2.0.1](https://discordpy.readthedocs.io/en/latest/)", inline=True)
+        embed.add_field(name="Text to Speech", value="[gTTS](https://gtts.readthedocs.io/en/latest/)", inline=True)
+        embed.add_field(name="Reddit", value="[asyncpraw](https://asyncpraw.readthedocs.io/en/stable/)", inline=True)
+        embed.add_field(name="Database", value="[aiosqlite](https://aiosqlite.omnilib.dev/en/latest/)", inline=True)
+        embed.add_field(name="GIF Database", value="DynamoDB", inline=True)
+        embed.add_field(name="HTTP", value="[aiohttp](https://docs.aiohttp.org/en/stable/)")
+        embed.set_thumbnail(url=self.bot.user.avatar.url)
+        await ctx.send(embed=embed)
 
 class StreamingRole(discord.ui.View):
     def __init__(self):
