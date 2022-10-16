@@ -89,17 +89,17 @@ class GifsApp(commands.Cog):
         else:
             await interaction.response.send_message("That can only be done in a bot command channel.", ephemeral=True)
 
-    # @gif_add.error
-    # async def gif_add_error(self, ctx, error):
-    #     if isinstance(error, commands.CheckFailure):
-    #         message = "You must be at least Level 5 to do that. If you are and still cannot do that, please contact a mod."
-    #     elif isinstance(error, checks.CreepError):
-    #         message = "No. Creep."
-    #     elif isinstance(error, commands.NoPrivateMessage):
-    #         message = "You can't use that in a DM. Why would you send a bot a GIF, anyway?"
-    #     elif isinstance(error, commands.MissingRequiredArgument):
-    #         message = "You must provide a GIF name and a URL to add a GIF: `!gif <name> <url>`"
-    #     await ctx.send(message)
+    @gif_add.error
+    async def gif_add_error(self, interaction, error):
+        if isinstance(error, commands.CheckFailure):
+            message = "You must be at least Level 5 to do that. If you are and still cannot do that, please contact a mod."
+        elif isinstance(error, checks.CreepError):
+            message = "No. Creep."
+        elif isinstance(error, commands.NoPrivateMessage):
+            message = "You can't use that in a DM. Why would you send a bot a GIF, anyway?"
+        elif isinstance(error, commands.MissingRequiredArgument):
+            message = "You must provide a GIF name and a URL to add a GIF: `!gif <name> <url>`"
+        await interaction.response.send_message(message, ephemeral=True)
 
 
     @gifs.command(name="update")
