@@ -1,4 +1,5 @@
 from code import interact
+from dis import disco
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -278,8 +279,11 @@ class ConverseEnd(discord.ui.View):
         self.user = user
         self.url = url
         super().__init__()
-        jump = discord.ui.Button(label="🐇", style=discord.ButtonStyle.link, url=url)
-        self.add_item(jump)
+        self.remove_item(self.remove_chat).remove_item(self.remove_db).remove_item(self.cancel_delete)
+        self.add_item(self.get_jump())
+
+    def get_jump(self):
+        return discord.ui.Button(label="🐇", style=discord.ButtonStyle.link, url=self.url)
 
     @discord.ui.button(label="🛑", style=discord.ButtonStyle.gray)
     async def stop(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -296,17 +300,40 @@ class ConverseEnd(discord.ui.View):
     async def remove(self, interaction: discord.Interaction, button: discord.ui.Button):
         mod_role = discord.utils.get(interaction.guild.roles, name=interaction.client.settings.mod_role)
         if [role for role in interaction.user.roles if role >= mod_role]:
+            self.clear_items().add_item(self.remove_chat).add_item(self.remove_db)
+            await interaction.response.edit_message(content=interaction.message.content, view=self)
+        elif interaction.user.id == self.user:
+            await self.delete_chat(interaction)
+        else:
+            await interaction.response.send_message("You cannot do that.", ephemeral=True)
+
+    @discord.ui.button(label="Remove from Chat", style=discord.ButtonStyle.primary)
+    async def remove_chat(self, interaction: discord.Interaction, button: discord.ui.Button):
+        mod_role = discord.utils.get(interaction.guild.roles, name=interaction.client.settings.mod_role)
+        if [role for role in interaction.user.roles if role >= mod_role]:
+            await self.delete_chat(interaction)
+
+    @discord.ui.button(label="Remove from Chat and DB", style=discord.ButtonStyle.danger)
+    async def remove_db(self, interaction: discord.Interaction, button: discord.ui.Button):
+        mod_role = discord.utils.get(interaction.guild.roles, name=interaction.client.settings.mod_role)
+        if [role for role in interaction.user.roles if role >= mod_role]:
+            await self.msg.delete()
             await interaction.response.send_message("Deleting response and entry in database", ephemeral=True)
             async with aiosqlite.connect("bunny.db") as db:
                 await db.execute("delete from past_bunny where message = ?", (self.url,))
                 await db.commit()
-            await interaction.edit_original_response(content="Entry deleted from database and message removed from chat.")
-            await self.msg.delete()
-        elif interaction.user.id == self.user:
-            await self.msg.delete()
-            await interaction.response.send_message("Response deleted.", ephemeral=True)
-        else:
-            await interaction.response.send_message("You cannot do that.", ephemeral=True)
+            self.clear_items().add_item(self.stop).add_item(self.remove).add_item(self.get_jump())
+            await interaction.edit_original_response(content="Entry deleted from database and message removed from chat.", view=discord.ui.View().add_item(self.get_jump()))
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.green)
+    async def cancel_delete(self, interaction: discord.Interaction, button: discord.ui.Button):
+        mod_role = discord.utils.get(interaction.guild.roles, name=interaction.client.settings.mod_role)
+        if [role for role in interaction.user.roles if role >= mod_role]:
+            self.clear_items().add_item(self.stop).add_item(self.remove).add_item(self.get_jump())
+
+    async def delete_chat(self, interaction: discord.Interaction):
+        await self.msg.delete()
+        await interaction.response.send_message("Response deleted.", ephemeral=True)
 
 class PageSelectModal(discord.ui.Modal, title="Jump to Page"):
     def __init__(self, view):

@@ -443,6 +443,7 @@ class Bunny(commands.Cog):
                 await message.delete()
 
     @commands.command(name="get-posts", hidden=True)
+    @checks.is_mod()
     async def get_posts(self, ctx):
         # Retrieves list of all Bunny's posts from Reddit. Used if needed to rebuild the post list.
         reddit = asyncpraw.Reddit(
@@ -458,22 +459,6 @@ class Bunny(commands.Cog):
                     file.write(f"{post.id}\n")
         reddit.close()
 
-#    @commands.command()
-#    async def twitch(self, ctx):
-#        tz = pytz.timezone("US/Central")
-#        today = datetime.datetime.now(tz)
-#        day = today.weekday()
-#        if day <= 2:
-#          next_day = datetime.timedelta(days=1)
-#        elif day <= 4:
-#          next_day = datetime.timedelta(days=3)
-#        else:
-#          next_day = datetime.timedelta(days=8)
-#        next_date = today.replace(hour=19, minute=0) + next_day
-#        utc_next = next_date.astimezone(pytz.utc)
-#        now = datetime.datetime.utcnow()
-#        await ctx.send(f"Bunny is a streamer! Catch her on Tuesdays and Thursdays (Wednesdays and Fridays for our European friends) on Twitch!\nThe next stream is on <t:{int(utc_next.timestamp())}> at https://twitch.tv/heyitsjustbunny")
-
     @commands.command(name="create-view")
     @checks.is_mod()
     async def create_view(self, ctx):
@@ -482,7 +467,7 @@ class Bunny(commands.Cog):
         embed = discord.Embed(title="Email Needed!", color=discord.Color.brand_green(), description="As Bunny transitions to Fansly, we need some information to match you up between Discord and the Stripe payment info to figure out how long you subscribed for. Just click the button below and enter the email address you used when signing up for the membership, and we'll get you a link to Fansly for your membership!")
         msg = await channel.send(embed=embed, view=membership.GetMemberInfo())
         print(msg.id)
-        self.bot.settings.member_view = msg.id#set("member_view", msg.id)
+        self.bot.settings.member_view = msg.id
 
 async def setup(bot):
     await bot.add_cog(Bunny(bot))
