@@ -53,6 +53,11 @@ class Fun(commands.Cog):
 
     @drink.command(aliases=["i"])
     async def ingredient(self, ctx, *, ingredient):
+        """
+        Get drinks by ingredient
+        
+        Search for a list of drinks by a provided ingredient, paginated
+        """
         if ingredient is None or ingredient == "":
             return await ctx.send("Please provide an ingredient")
         params = { "i": ingredient }
@@ -119,7 +124,7 @@ class Fun(commands.Cog):
             try:
                 await db.execute("insert into past_bunny (message, content, created_by, created_date) values (?, ?, ?, ?)", (message.jump_url, message.clean_content, interaction.user.id, datetime.datetime.now(pytz.timezone("US/Central"))))
                 await db.commit()
-            except aiosqlite.IntegrityError:
+            except aiosqlite.IntegrityError: # message URLs are unique in the db
                 return await interaction.response.send_message(f"That message has already been added.", ephemeral=True)
             await interaction.response.send_message("Message added!", ephemeral=True)
 
@@ -136,6 +141,9 @@ class Fun(commands.Cog):
     
     @converse.command(name="list")
     async def converse_list(self, ctx):
+        """
+        List of PastBunny messages
+        """
         async with aiosqlite.connect("bunny.db") as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("select * from past_bunny")
@@ -143,7 +151,8 @@ class Fun(commands.Cog):
             embeds = [PastBunnyMessage(self.bot, message) for message in messages]
             view = BunnyMessagesList(embeds)
             embed = embeds[0].embed
-        await ctx.reply(embed=embed, view=view)
+        msg = await ctx.reply(embed=embed, view=view)
+        view.msg = msg
 
 class BunnyMessagesList(discord.ui.View):
     def __init__(self, embeds):
@@ -177,9 +186,10 @@ class BunnyMessagesList(discord.ui.View):
         self.msg_id = self.embeds[self.page - 1].id
         await interaction.response.edit_message(embed=self.embeds[self.page - 1].embed, view=self)
 
-    @discord.ui.button(label="1", style=discord.ButtonStyle.gray, custom_id="current", disabled=True)
+    @discord.ui.button(label="1", style=discord.ButtonStyle.gray, custom_id="current")
     async def current(self, interaction: discord.Interaction, button: discord.ui.Button):
-        pass
+        # await interaction.response.edit_message(embed=self.embeds[self.page - 1].embed, view=self)
+        await interaction.response.send_modal(PageSelectModal(self))
 
     @discord.ui.button(label=">", style=discord.ButtonStyle.blurple, custom_id="next")
     async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -214,6 +224,8 @@ class BunnyMessagesList(discord.ui.View):
         else:
             await interaction.response.send_message("Only a mod can do that.", ephemeral=True)
 
+    @discord.ui.button(label="Close Messages", style=discord.ButtonStyle.blurple)
+
     @discord.ui.button(label="Confirm Delete", style=discord.ButtonStyle.danger)
     async def confirm_delete(self, interaction: discord.Interaction, button: discord.ui.Button):
         mod_role = discord.utils.get(interaction.guild.roles, name=interaction.client.settings.mod_role)
@@ -238,6 +250,13 @@ class BunnyMessagesList(discord.ui.View):
         else:
             await interaction.response.send_message("Only a mod can do that.", ephemeral=True)
 
+    @discord.ui.button(label="Close", style=discord.ButtonStyle.gray)
+    async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # self.stop()
+        await self.msg.delete()
+        
+        
+
 class PastBunnyMessage:
     def __init__(self, bot, message):
         # self.bot = bot
@@ -256,10 +275,10 @@ class ConverseEnd(discord.ui.View):
         self.user = user
         self.url = url
         super().__init__()
-        jump = discord.ui.Button(label="Jump to message", style=discord.ButtonStyle.link, url=url)
+        jump = discord.ui.Button(label="🐇", style=discord.ButtonStyle.link, url=url)
         self.add_item(jump)
 
-    @discord.ui.button(label="Stop Conversing", style=discord.ButtonStyle.gray)
+    @discord.ui.button(label="🛑", style=discord.ButtonStyle.gray)
     async def stop(self, interaction: discord.Interaction, button: discord.ui.Button):
         mod_role = discord.utils.get(interaction.guild.roles, name=interaction.client.settings.mod_role)
         if not interaction.user.id == self.user and not [role for role in interaction.user.roles if role >= mod_role]:
@@ -270,7 +289,7 @@ class ConverseEnd(discord.ui.View):
             fun = interaction.client.get_cog("Fun")
             interaction.client.remove_listener(fun.converse_listener, "on_message")
 
-    @discord.ui.button(label="Remove", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="🗑️", style=discord.ButtonStyle.danger)
     async def remove(self, interaction: discord.Interaction, button: discord.ui.Button):
         mod_role = discord.utils.get(interaction.guild.roles, name=interaction.client.settings.mod_role)
         if [role for role in interaction.user.roles if role >= mod_role]:
@@ -285,6 +304,34 @@ class ConverseEnd(discord.ui.View):
             await interaction.response.send_message("Response deleted.", ephemeral=True)
         else:
             await interaction.response.send_message("You cannot do that.", ephemeral=True)
+
+class PageSelectModal(discord.ui.Modal, title="Jump to Page"):
+    def __init__(self, view):
+        self.view = view
+        self.page.label = f"Page 1-{self.view.max}"
+        super().__init__()    
+        
+    page = discord.ui.TextInput(label=f"", required=True)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if int(self.page.value) > self.view.max:
+            raise commands.BadArgument
+        else:
+            self.view.page = int(self.page.value)
+            self.view.current.label = self.view.page
+            if self.view.page == self.view.max:
+                self.view.last.disabled = True
+                self.view.next.disabled = True
+            if self.view.page == 1:
+                self.view.first.disabled = True
+                self.view.prev.disabled = True
+            else:
+                self.view.last.disabled = False
+                self.view.next.disabled = False
+                self.view.prev.disabled = False
+                self.view.first.disabled = False
+            await interaction.response.edit_message(embed=self.view.embeds[self.view.page - 1].embed, view=self.view)
+
 
 class Drink():
     def __init__(self, json):
