@@ -133,7 +133,6 @@ class Fun(commands.Cog):
             view = ConverseEnd(message.author.id, reply["message"])
             msg = await message.reply(reply["content"], view=view)
             view.msg = msg
-            
     
     @converse.command(name="list")
     async def converse_list(self, ctx):
@@ -230,7 +229,6 @@ class BunnyMessagesList(discord.ui.View):
         else:
             await interaction.response.send_message("Only a mod can do that.", ephemeral=True)
 
-
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.primary)
     async def cancel_delete(self, interaction: discord.Interaction, button: discord.ui.Button):
         mod_role = discord.utils.get(interaction.guild.roles, name=interaction.client.settings.mod_role)
@@ -252,7 +250,6 @@ class PastBunnyMessage:
         embed.add_field(name="Jump Link", value=f"[Original Message]({self.url})")
         embed.add_field(name="Added by", value=self.created_by.mention)
         self.embed = embed
-
 
 class ConverseEnd(discord.ui.View):
     def __init__(self, user, url):
@@ -288,7 +285,6 @@ class ConverseEnd(discord.ui.View):
             await interaction.response.send_message("Response deleted.", ephemeral=True)
         else:
             await interaction.response.send_message("You cannot do that.", ephemeral=True)
-
 
 class Drink():
     def __init__(self, json):
