@@ -442,23 +442,6 @@ class Bunny(commands.Cog):
             if not message.content.isdigit():
                 await message.delete()
 
-    @commands.command(name="get-posts", hidden=True)
-    @checks.is_mod()
-    async def get_posts(self, ctx):
-        # Retrieves list of all Bunny's posts from Reddit. Used if needed to rebuild the post list.
-        reddit = asyncpraw.Reddit(
-            client_id=self.CLIENT_ID,
-            client_secret=self.CLIENT_SECRET,
-            user_agent="BunnitBot 1.1",
-        )
-        bunny = await reddit.redditor("heyitsjustbunny")
-        async for post in bunny.submissions.hot(limit=1000):
-            print(f"{post.id} {datetime.datetime.utcfromtimestamp(post.created_utc)}")
-            if not post.is_self and post.title.find("Removed by Reddit") == -1:
-                with open("/home/aricept/DiscoBunny/new_posts.txt", "a") as file:
-                    file.write(f"{post.id}\n")
-        reddit.close()
-
     @commands.command(name="create-view")
     @checks.is_mod()
     async def create_view(self, ctx):
