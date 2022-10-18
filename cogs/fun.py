@@ -1,3 +1,4 @@
+from code import interact
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -101,6 +102,7 @@ class Fun(commands.Cog):
         """
         Add a new message to the PastBunny database
         """
+        jump = discord.ui.View().add_item(discord.ui.Button(label="Back to Message", style=discord.ButtonStyle.link, url=message.jump_url))
         if message.author.id != 940257449502466138:
             return await ctx.send(f"Only messages from Bunny may be added. It's Past**Bunny**, not Past**{message.author.display_name}**.", ephemeral=True)
 
@@ -110,23 +112,23 @@ class Fun(commands.Cog):
                 await db.commit()
             except aiosqlite.IntegrityError:
                 return await ctx.reply(f"That message has already been added.", ephemeral=True)
-            await ctx.reply("Message added!", ephemeral=True)
-
+            await ctx.reply("Message added!", ephemeral=True, view=jump)
 
     async def menu_add(self, interaction: discord.Interaction, message: discord.Message=commands.parameter(description="the URL of the message you want to add")):
         """
         Add a new message to the PastBunny database
         """
+        jump = discord.ui.View().add_item(discord.ui.Button(label="Back to Message", style=discord.ButtonStyle.link, url=message.jump_url))
         if message.author.id != 940257449502466138:
-            return await interaction.response.send_message(f"Only messages from Bunny may be added. It's Past**Bunny**, not Past**{message.author.display_name}**.", ephemeral=True)
+            return await interaction.response.send_message(f"Only messages from Bunny may be added. It's Past**Bunny**, not Past**{message.author.display_name}**.", ephemeral=True, view=jump)
 
         async with aiosqlite.connect("bunny.db") as db:
             try:
                 await db.execute("insert into past_bunny (message, content, created_by, created_date) values (?, ?, ?, ?)", (message.jump_url, message.clean_content, interaction.user.id, datetime.datetime.now(pytz.timezone("US/Central"))))
                 await db.commit()
             except aiosqlite.IntegrityError: # message URLs are unique in the db
-                return await interaction.response.send_message(f"That message has already been added.", ephemeral=True)
-            await interaction.response.send_message("Message added!", ephemeral=True)
+                return await interaction.response.send_message(f"That message has already been added.", ephemeral=True, view=jump)
+        await interaction.response.send_message("Message added!", ephemeral=True, view=jump)
 
     async def converse_listener(self, message):
         if message.author.id in self.bot.conversing:
@@ -163,6 +165,9 @@ class BunnyMessagesList(discord.ui.View):
         self.msg_id = embeds[self.page - 1].id
         self.remove_item(self.confirm_delete).remove_item(self.cancel_delete)
 
+    async def on_timeout(self):
+        await self.msg.delete()
+
     @discord.ui.button(label="<<", style=discord.ButtonStyle.danger, custom_id="first", disabled=True)
     async def first(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.page = 1
@@ -188,7 +193,6 @@ class BunnyMessagesList(discord.ui.View):
 
     @discord.ui.button(label="1", style=discord.ButtonStyle.gray, custom_id="current")
     async def current(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # await interaction.response.edit_message(embed=self.embeds[self.page - 1].embed, view=self)
         await interaction.response.send_modal(PageSelectModal(self))
 
     @discord.ui.button(label=">", style=discord.ButtonStyle.blurple, custom_id="next")
@@ -219,25 +223,27 @@ class BunnyMessagesList(discord.ui.View):
         mod_role = discord.utils.get(interaction.guild.roles, name=interaction.client.settings.mod_role)
         if [role for role in interaction.user.roles if role >= mod_role]:
             self.delete_id = self.msg_id
-            self.remove_item(self.delete).add_item(self.confirm_delete).add_item(self.cancel_delete)
+            self.remove_item(self.delete).add_item(self.confirm_delete).remove_item(self.close).add_item(self.cancel_delete).add_item(self.close)
             await interaction.response.edit_message(embed=self.embeds[self.page - 1].embed, view=self)
         else:
             await interaction.response.send_message("Only a mod can do that.", ephemeral=True)
-
-    @discord.ui.button(label="Close Messages", style=discord.ButtonStyle.blurple)
 
     @discord.ui.button(label="Confirm Delete", style=discord.ButtonStyle.danger)
     async def confirm_delete(self, interaction: discord.Interaction, button: discord.ui.Button):
         mod_role = discord.utils.get(interaction.guild.roles, name=interaction.client.settings.mod_role)
         if [role for role in interaction.user.roles if role >= mod_role]:
+            jump = discord.ui.View().add_item(discord.ui.Button(label="Back to Message", style=discord.ButtonStyle.link, url=self.embeds[self.page - 1].url))
             async with aiosqlite.connect("bunny.db") as db:
                 await db.execute("delete from past_bunny where past_bunny_id = ?", (self.delete_id,))
                 await db.commit()
             self.embeds.remove(self.embeds[self.page - 1])
-            self.page = self.page + 1 if self.page == self.max else self.page - 1
-            self.remove_item(self.confirm_delete).remove_item(self.cancel_delete).add_item(self.delete)
+            if self.page == self.max:
+                self.page = self.page - 1
+                self.current.label = self.page
+            self.max = self.max - 1
+            self.remove_item(self.confirm_delete).remove_item(self.cancel_delete).remove_item(self.close).add_item(self.delete).add_item(self.close)
             await interaction.response.edit_message(embed=self.embeds[self.page - 1].embed, view=self)
-            await interaction.followup.send("Message deleted.", ephemeral=True)
+            await interaction.followup.send("Message deleted.", ephemeral=True, view=jump)
         else:
             await interaction.response.send_message("Only a mod can do that.", ephemeral=True)
 
@@ -245,17 +251,14 @@ class BunnyMessagesList(discord.ui.View):
     async def cancel_delete(self, interaction: discord.Interaction, button: discord.ui.Button):
         mod_role = discord.utils.get(interaction.guild.roles, name=interaction.client.settings.mod_role)
         if [role for role in interaction.user.roles if role >= mod_role]:
-            self.remove_item(self.confirm_delete).remove_item(self.cancel_delete).add_item(self.delete)
+            self.remove_item(self.confirm_delete).remove_item(self.cancel_delete).remove_item(self.close).add_item(self.delete).add_item(self.close)
             await interaction.response.edit_message(embed=self.embeds[self.page - 1].embed, view=self)
         else:
             await interaction.response.send_message("Only a mod can do that.", ephemeral=True)
 
     @discord.ui.button(label="Close", style=discord.ButtonStyle.gray)
     async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # self.stop()
         await self.msg.delete()
-        
-        
 
 class PastBunnyMessage:
     def __init__(self, bot, message):
@@ -332,6 +335,12 @@ class PageSelectModal(discord.ui.Modal, title="Jump to Page"):
                 self.view.first.disabled = False
             await interaction.response.edit_message(embed=self.view.embeds[self.view.page - 1].embed, view=self.view)
 
+    async def on_error(self, interaction: discord.Interaction, error):
+        if isinstance(error, commands.BadArgument):
+            await interaction.response.send_message(f"Page Number must be between 1 and {self.view.max}.", ephemeral=True)
+        else:
+            print(error)
+            await interaction.response.send_message("An unknown error occurred.", ephemeral=True)
 
 class Drink():
     def __init__(self, json):
