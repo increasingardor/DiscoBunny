@@ -20,6 +20,7 @@ class ControlCogsCog(commands.Cog):
             await self.bot.load_extension(cog)
         except Exception as e:
             await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
+            print(e)
         else:
             await ctx.send(f'`{cog}` loaded successfully.')
             print(f"Loaded cog {cog}")

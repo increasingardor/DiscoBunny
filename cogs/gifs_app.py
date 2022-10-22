@@ -31,8 +31,8 @@ class GifsApp(commands.Cog):
         Retrieves one gif from the database. This gif will be masked with a spoiler in #general or any channel not marked NSFW.
         """
         if (not interaction.user.name in self.gif_cooldowns 
-                or (datetime.now() - self.gif_cooldowns[interaction.user.name]).seconds > int(await self.bot.settings.gif_cooldown)#get("gif_cooldown")) 
-                or interaction.user.top_role >= discord.utils.get(interaction.guild.roles, name=await self.bot.settings.mod_role)):#get("mod_role"))):
+                or (datetime.now() - self.gif_cooldowns[interaction.user.name]).seconds > int(self.bot.settings.gif_cooldown)#get("gif_cooldown")) 
+                or interaction.user.top_role >= discord.utils.get(interaction.guild.roles, name=self.bot.settings.mod_role)):#get("mod_role"))):
             payload = {'name': gif_name.lower()}
             async with self.bot.session.get("https://counter.heyitsjustbunny.com/get_gif", params=payload) as r:
                 data = await r.json()
@@ -72,7 +72,7 @@ class GifsApp(commands.Cog):
         """
         if (interaction.channel.name.find("bot-commands") > -1 
                 or interaction.channel.name.find("bots-commands") > -1 
-                or interaction.user.top_role >= discord.utils.get(interaction.guild.roles, name=await self.bot.settings.mod_role)):#get("mod_role"))):
+                or interaction.user.top_role >= discord.utils.get(interaction.guild.roles, name=self.bot.settings.mod_role)):#get("mod_role"))):
             parsed = name.split()
             if parsed[0].lower() in ["add", "update", "delete", "list"]:
                 return await interaction.response.send_message("GIF names cannot begin with `add`, `update`, `delete`, or `list`.", ephemeral=True)

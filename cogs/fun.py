@@ -1,5 +1,4 @@
-from code import interact
-from dis import disco
+import random
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -143,10 +142,11 @@ class Fun(commands.Cog):
             view.msg = msg
     
     @converse.command(name="list")
-    async def converse_list(self, ctx):
+    async def converse_list(self, ctx, public: typing.Literal["true", "false"]="false"):
         """
         List of PastBunny messages
         """
+        ephemeral = False if public == "true" else True
         async with aiosqlite.connect("bunny.db") as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("select * from past_bunny")
@@ -154,8 +154,50 @@ class Fun(commands.Cog):
             embeds = [PastBunnyMessage(self.bot, message) for message in messages]
             view = BunnyMessagesList(embeds)
             embed = embeds[0].embed
-        msg = await ctx.reply(embed=embed, view=view)
+        msg = await ctx.reply(embed=embed, view=view, ephemeral=ephemeral)
         view.msg = msg
+
+    @commands.Cog.listener(name="on_member_update")
+    async def rules_accepted(self, before: discord.Member, after: discord.Member):
+        rules_role = before.guild.get_role(945922913423482891)
+        channel = after.guild.get_channel(940301083098632272)#940258352775192639)
+        had_role = [role for role in before.roles if role is rules_role]
+        has_role = [role for role in after.roles if role is rules_role]
+        if not had_role and has_role:
+            view = WelcomeView(after)
+            await channel.send(f"{after.display_name} has accepted the rules!", view=view)
+
+class WelcomeView(discord.ui.View):
+    def __init__(self, member: discord.Member):
+        self.member = member
+        super().__init__()
+
+    @discord.ui.button(label="Say hi!", style=discord.ButtonStyle.green)
+    async def welcome_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        stickers = [
+            "bunny_hole_hi",
+            "bunny_phone_hi",
+            "bunny_seductive_wink_hi",
+            "bunny_wink_hi",
+            "BunnyWelcome",
+            "kawaii-hi",
+            "miss_bunny",
+            "peach",
+            "tree_hi",
+            "wumpus"
+        ]
+        greetings = [
+            "hi from",
+            "greetings from",
+            "you've been waved at by",
+            "welcome from",
+            "your new best friend is",
+            "gets a hug from"
+        ]
+        image = f"{random.choice(stickers)}.gif"
+        greeting = random.choice(greetings)
+        await interaction.response.send_message(f"{self.member.mention} {greeting} {interaction.user.mention}", file=discord.File(fp=f"images/{image}", filename=f"{image}"))
+            
 
 class BunnyMessagesList(discord.ui.View):
     def __init__(self, embeds):
