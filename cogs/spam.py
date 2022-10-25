@@ -15,12 +15,15 @@ class Spam(commands.Cog):
     @commands.Cog.listener("on_message")
     async def domains(self, message):
         # Compares message content against domains in the spam filter. Deletes if in the filter and alerts mods.
-        if isinstance(message.channel, discord.TextChannel) and message.guild.id == 940258352775192636 and not message.author.bot and message.author.top_role < discord.utils.get(message.guild.roles, name=self.bot.settings.mod_role):#get("mod_role")):
+        if (isinstance(message.channel, discord.TextChannel) or isinstance(message.channel, discord.VoiceChannel)) and message.guild.id == 940258352775192636 and not message.author.bot and message.author.top_role < discord.utils.get(message.guild.roles, name=self.bot.settings.mod_role):#get("mod_role")):
             result = await self.bot.db.execute("select domain from spam")
             rows = await result.fetchall()
             for row in rows:
                 if re.search(re.escape(row["domain"]), message.content):
-                    await message.delete()
+                    try:
+                        await message.delete()
+                    except Exception as e:
+                        print(e)
                     channel = message.guild.get_channel(940301083098632272)
                     await channel.send(f"<@&941023769244352562> Message from {message.author.mention} deleted in {message.channel.mention} as possible spam. See message in <#954403280103018526>.")
 
