@@ -7,3 +7,7 @@ class Settings:
             except ValueError:
                 value = setting["value"]
             self.__setattr__(setting["name"], value)
+    
+    @property
+    def keys(self):
+        return self.__dict__.keys()
