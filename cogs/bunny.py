@@ -46,7 +46,8 @@ class Bunny(commands.Cog):
 
             # Pulls random response
             rand_response = random.randint(0, len(self.responses) - 1)
-            original = await ctx.send(self.responses[rand_response])
+            # original = await ctx.send(self.responses[rand_response])
+            await ctx.typing()
             post_list = []
 
             async with aiosqlite.connect("bunny.db") as db:
@@ -65,6 +66,7 @@ class Bunny(commands.Cog):
                     else:
                         # Pulls all posts if the tag doesn't exist
                         await ctx.send(f"Tag `{tag}` does not exist, getting random post.")
+                        await ctx.typing()
                         result = await db.execute("select reddit_id, post_id from posts")
                         posts = await result.fetchall()
 
@@ -77,7 +79,7 @@ class Bunny(commands.Cog):
                 result = await db.execute("select t.name from tags t inner join post_tags pt on t.tag_id = pt.tag_id where pt.post_id = ?", (random_post["post_id"],)) #self.bot.db.execute("select t.name from tags t inner join post_tags pt on t.tag_id = pt.tag_id where pt.post_id = ?", (random_post["post_id"],))
                 post_tags = await result.fetchall()
                 selected_post.tags = " ".join([f"`{post_tag['name']}`" for post_tag in post_tags])
-                await ctx.send(self.found[rand_response])
+                # await ctx.send(self.found[rand_response])
 
                 # Parses image URL from Reddit data, creates embed
                 image_url = self.get_image_url(selected_post)
