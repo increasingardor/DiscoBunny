@@ -23,11 +23,14 @@ class SettingsCog(commands.Cog):
     @checks.is_mod()
     async def add(self, ctx, key, *, value):
         key = key.lower()
-        keys = await self.bot.settings.keys()
+        keys = self.bot.settings.keys
         if key in keys:
             await ctx.send(f"Setting {key.lower()} already exists. Please use `!settings update` to update a key.")
         else:
-            await self.bot.settings.add(key, value, ctx.author.display_name, datetime.now(pytz.timezone("US/Central")))#self.set(key, value)
+            async with aiosqlite.connect("bunny.db") as db:
+                await db.execute("insert into settings (name, value, created_by, created_date) values (?, ?, ?, ?)", (key, value, ctx.author.display_name, datetime.now(pytz.timezone("US/Central"))))
+                await db.commit()
+                self.bot.settings.__setattr__(key, value)
             await ctx.send(f"Setting `{key}` set to `{value}`.")
 
     @add.error
@@ -47,6 +50,7 @@ class SettingsCog(commands.Cog):
         if key in keys:
             async with aiosqlite.connect("bunny.db") as db:
                 await db.execute("update settings set value = ? where name = ?", (value, key))
+                await db.commit()
             #await self.bot.settings.set(key, value)
         else:
             async with aiosqlite.connect("bunny.db") as db:
