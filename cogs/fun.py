@@ -157,20 +157,39 @@ class Fun(commands.Cog):
         msg = await ctx.reply(embed=embed, view=view, ephemeral=ephemeral)
         view.msg = msg
 
+    @commands.hybrid_command(name="sylvia")
+    async def sylvia(self, ctx: commands.Context):
+        """
+        Get a Sylvia Plath Quote
+        """
+        params = { "api": "2255", "apisecret": self.bot.settings.sylvia_key }
+        async with self.bot.session.get("https://generatorfun.com/consumeapi.php", params=params) as data:
+            response = await data.text()
+            quote = response.split("-")[0].replace('\"', "").replace("\\", "").strip()
+        embed = discord.Embed(description=quote, color=discord.Color.red())
+        embed.set_author(name="Sylvia Plath", url="https://en.wikipedia.org/wiki/Sylvia_Plath")
+        embed.set_thumbnail(url="https://cdn.britannica.com/67/19067-050-843F2405/Sylvia-Plath.jpg")
+        await ctx.reply(embed=embed)
+
+
     @commands.Cog.listener(name="on_member_update")
     async def rules_accepted(self, before: discord.Member, after: discord.Member):
         rules_role = before.guild.get_role(945922913423482891)
-        channel = after.guild.get_channel(940301083098632272)#940258352775192639)
+        channel = after.guild.get_channel(940258352775192639)
         had_role = [role for role in before.roles if role is rules_role]
         has_role = [role for role in after.roles if role is rules_role]
         if not had_role and has_role:
             view = WelcomeView(after)
-            await channel.send(f"{after.display_name} has accepted the rules!", view=view)
+            view.msg = await channel.send(f"{after.display_name} has accepted the rules!", view=view)
 
 class WelcomeView(discord.ui.View):
     def __init__(self, member: discord.Member):
         self.member = member
-        super().__init__()
+        super().__init__(timeout=3600)
+
+    def on_timeout(self):
+        self.welcome_button.disabled = True
+        self.msg.edit(content=self.msg.content, view=self)
 
     @discord.ui.button(label="Say hi!", style=discord.ButtonStyle.green)
     async def welcome_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -187,16 +206,16 @@ class WelcomeView(discord.ui.View):
             "wumpus"
         ]
         greetings = [
-            "hi from",
-            "greetings from",
-            "you've been waved at by",
-            "welcome from",
-            "your new best friend is",
-            "gets a hug from"
+            f"{interaction.user.mention} says hello to {self.member.mention}",
+            f"{self.member.mention} greetings from {interaction.user.mention}",
+            f"{self.member.mention} you've been waved at by {interaction.user.mention}",
+            f"{self.member.mention} welcome from {interaction.user.mention}",
+            f"{interaction.user.mention} cheers for {self.member.mention}",
+            f"{interaction.user.mention} greets {self.member.mention} with a hug"
         ]
         image = f"{random.choice(stickers)}.gif"
         greeting = random.choice(greetings)
-        await interaction.response.send_message(f"{self.member.mention} {greeting} {interaction.user.mention}", file=discord.File(fp=f"images/{image}", filename=f"{image}"))
+        await interaction.response.send_message(greeting, file=discord.File(fp=f"images/{image}", filename=f"{image}"))
             
 
 class BunnyMessagesList(discord.ui.View):
