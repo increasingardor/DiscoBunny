@@ -1,17 +1,22 @@
 from datetime import datetime
+import typing
 import zoneinfo
 import discord
 from discord import app_commands
 from discord.ext import tasks, commands
 import aiosqlite
 import sqlite3
+from jishaku.paginators import PaginatorInterface
 
 class Reminders(commands.Cog):
     def __init__(self, bot):
         self.bot: commands.Bot = bot
 
     async def cog_load(self):
-        await self.remind_loop()
+        await self.remind_loop.start()
+
+    async def cog_unload(self):
+        self.remind_loop.stop()
 
     @tasks.loop()
     async def remind_loop(self):
@@ -48,8 +53,10 @@ class Reminders(commands.Cog):
     async def before_remind_loop(self):
         await self.bot.wait_until_ready()
 
-    @app_commands.command(name="reminder")
-    async def reminder(self, interaction: discord.Interaction):
+    reminder = app_commands.Group(name="reminders", description="Reminders")
+
+    @reminder.command(name="set")
+    async def set_reminder(self, interaction: discord.Interaction):
         """
         Set a reminder
         """
@@ -63,6 +70,29 @@ class Reminders(commands.Cog):
         else:
             await self.remind_loop.start()
         
+    @reminder.command(name="list")
+    async def list_reminders(self, interaction: discord.Interaction, which: typing.Literal["upcoming", "past", "all"]="upcoming"):
+        """
+        List your reminders
+        """
+        if which != "all":
+            completed = 0 if which == "upcoming" else 1
+            async with aiosqlite.connect("bunny.db") as db:
+                db.row_factory = aiosqlite.Row
+                data = await db.execute("select reminder_id, user_id, reminder_text, start_time, end_time, completed from reminders where user_id = ? and completed = ?", (interaction.user.id, completed))
+                reminders = await data.fetchall()
+        else:
+            async with aiosqlite.connect("bunny.db") as db:
+                db.row_factory = aiosqlite.Row
+                data = await db.execute("select reminder_id, user_id, reminder_text, start_time, end_time, completed from reminders where user_id = ?", (interaction.user.id, completed))
+                reminders = await data.fetchall()
+        embed = discord.Embed(title=f"Reminders List")
+        if reminders:
+            description = f"For {interaction.user.mention}\n\n" + "\n\n".join([f"**{reminder['end_time'].split('.')[0]} Central**\n*Set on {reminder['start_time'].split('.')[0]}*\n{reminder['reminder_text']}" for reminder in reminders])
+        else:
+            description = f"For {interaction.user.mention}\n\n*No reminders found*"
+        embed.description = description
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 class ReminderModal(discord.ui.Modal, title="Reminder! Fill date, or hours/minutes."):
     def __init__(self, date):
